@@ -24,21 +24,35 @@ unsigned int mqttConnectionAttempts;
 uint32_t resetTime = 0;
 retained uint32_t lastHardResetTime;
 retained int resetCount;
+char serialData[100];
+uint8_t serialPosition;
 
 uint8_t dockerContainerCount[3];
 uint8_t dockerContainers[3];
 uint32_t containerUpdateTimeout[3];
 
-Nextion nextion;
+Nextion nextion(Serial1);
+
+/*
+int toggleScreen(const char* data) {
+  pinMode(A0, OUTPUT);
+  if (digitalRead(A0) == HIGH) {
+    digitalWrite(A0, LOW);
+  } else {
+    digitalWrite(A0, HIGH);
+  }
+  return 0;
+}
+*/
+int startUpdate(const char* data) {
+  nextion.doUpdate();
+  return 0;
+}
 
 static const char* bytesToHumanSize(const char* cBytes) {
   uint64_t bytes = strtoull(cBytes, NULL, 0);
-  // return bytesToHumanSize(uBytes);
-// }
 
-// static const char* bytesToHumanSize(uint64_t bytes)
-// {
-	char *suffix[] = {"B", "K", "M", "G", "T"};
+	char const *suffix[] = {"B", "K", "M", "G", "T"};
 	char length = sizeof(suffix) / sizeof(suffix[0]);
 
 	int i = 0;
@@ -55,6 +69,10 @@ static const char* bytesToHumanSize(const char* cBytes) {
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
+
+  // if (firmwareUpdateInProgress)
+    // return;
+
     char p[length + 1];
     memcpy(p, payload, length);
     p[length] = '\0';
@@ -86,41 +104,41 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
     if (strcmp(topics[2], "cpu") == 0) {
       uint8_t cpu = atoi(p);
-      nextion.setProgressBar(server, 1, cpu);
-      nextion.setText(server, "cpu", cpu, "%");
+      nextion.setProgressBar(1, server, 1, cpu);
+      nextion.setText(1, server, "cpu", cpu, "%");
     } else if (strcmp(topics[2], "mem") == 0) {
       if (strncmp(topics[3], "percent", 7) == 0) {
         uint8_t mem = atoi(p);
-        nextion.setProgressBar(server, 2, mem);
-        nextion.setText(server, "memory", mem, "%");
+        nextion.setProgressBar(1, server, 2, mem);
+        nextion.setText(1, server, "memory", mem, "%");
       } else if (strncmp(topics[3], "total", 5) == 0) {
-        nextion.setText(server, "memtotal", bytesToHumanSize(p));
+        nextion.setText(1, server, "memtotal", bytesToHumanSize(p));
       } else if (strncmp(topics[3], "used", 4) == 0) {
-        nextion.setText(server, "memused", bytesToHumanSize(p));
+        nextion.setText(1, server, "memused", bytesToHumanSize(p));
       } else if (strncmp(topics[3], "free", 4) == 0) {
-        nextion.setText(server, "memfree", bytesToHumanSize(p));
+        nextion.setText(1, server, "memfree", bytesToHumanSize(p));
       }
     } else if (strcmp(topics[2], "memswap") == 0) {
       uint8_t swap = atoi(p);
-      nextion.setProgressBar(server, 3, swap);
-      nextion.setText(server, "swap", swap, "%");
+      nextion.setProgressBar(1, server, 3, swap);
+      nextion.setText(1, server, "swap", swap, "%");
     } else if (strcmp(topics[2], "uptime") == 0) {
       int uptime = atoi(p);
-      nextion.setUptimeText(server, uptime);
+      nextion.setUptimeText(1, server, uptime);
     } else if (strcmp(topics[2], "load") == 0) {
       if (strncmp(topics[3], "min15", 5) == 0) {
-        nextion.setText(server, "load15", p);
+        nextion.setText(1, server, "load15", p);
       } else if (strncmp(topics[3], "min5", 4) == 0) {
-        nextion.setText(server, "load5", p);
+        nextion.setText(1, server, "load5", p);
       } else if (strncmp(topics[3], "min1", 4) == 0) {
-        nextion.setText(server, "load1", p);
+        nextion.setText(1, server, "load1", p);
       }
     } else if (strcmp(topics[2], "sensors") == 0) {
       if (strncmp(topics[4], "value", 5) == 0) {
         if (strcmp(topics[3], "Core_0") == 0) {
-          nextion.setText(server, "core0", p, "C");
+          nextion.setText(1, server, "core0", p, "C");
         } else if (strcmp(topics[3], "Core_1") == 0) {
-          nextion.setText(server, "core1", p, "C");
+          nextion.setText(1, server, "core1", p, "C");
         }
       }
     } else if (strcmp(topics[2], "docker") == 0) {
@@ -131,29 +149,28 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     } else if (strcmp(topics[2], "network") == 0) {
       if (strcmp(topics[3], "eno1") == 0 || strcmp(topics[3], "eth0") == 0) {
         if (strncmp(topics[4], "tx", 2) == 0) {
-          nextion.setText(server, "nictx", bytesToHumanSize(p));
+          nextion.setText(1, server, "nictx", bytesToHumanSize(p));
         } else if (strncmp(topics[4], "rx", 2) == 0) {
-          nextion.setText(server, "nicrx", bytesToHumanSize(p));
+          nextion.setText(1, server, "nicrx", bytesToHumanSize(p));
         }
       }
     } else if (strcmp(topics[2], "fs") == 0) {
       if (strcmp(topics[3], "_share_CACHEDEV1_DATA") == 0 ||
           strcmp(topics[3], "_") == 0) {
         if (strncmp(topics[4], "size", 4) == 0) {
-          nextion.setText(server, "fs1total", bytesToHumanSize(p));
+          nextion.setText(1, server, "fs1total", bytesToHumanSize(p));
         } else if (strncmp(topics[4], "used", 4) == 0) {
-          nextion.setText(server, "fs1used", bytesToHumanSize(p));
+          nextion.setText(1, server, "fs1used", bytesToHumanSize(p));
         }        
       } else if (strcmp(topics[3], "_gluster") == 0) {
         if (strncmp(topics[4], "size", 4) == 0) {
-          nextion.setText(server, "fs2total", bytesToHumanSize(p));
+          nextion.setText(1, server, "fs2total", bytesToHumanSize(p));
         } else if (strncmp(topics[4], "used", 4) == 0) {
-          nextion.setText(server, "fs2used", bytesToHumanSize(p));
+          nextion.setText(1, server, "fs2used", bytesToHumanSize(p));
         }        
       }
     }
 }
-
 
 void connectToMQTT() {
     lastMqttConnectAttempt = millis();
@@ -178,6 +195,11 @@ void connectToMQTT() {
     }
 }
 
+int runNextionCommand(const char* data) {
+  nextion.run(data);
+  return 0;
+}
+
 SYSTEM_THREAD(ENABLED);
 
 void startupMacro() {
@@ -187,9 +209,8 @@ void startupMacro() {
 STARTUP(startupMacro());
 
 void setup(void) {
-    Serial1.begin(115200);
-
- 
+    nextion.setup();
+    // nextion.startDisplay();
     waitFor(Particle.connected, 30000);
     
     do {
@@ -213,26 +234,37 @@ void setup(void) {
         resetCount = 0;
     }
 
+    Particle.function("run", runNextionCommand);
+    Particle.function("startFirmwareUpdate", startUpdate);
+    // Particle.function("toggleScreen", toggleScreen);
     Log.info("Boot complete. Reset count = %d", resetCount);
-
     connectToMQTT();
+    nextion.startDisplay();
+    // Log.info("Nextion Startup:%d Ready:%d", nextion.getIsStartup(), nextion.getIsReady());
 }
 
 void loop() {
+  nextion.loop();
+
+  if (nextion.getPage() == 0 && nextion.getIsReady()) {
+    nextion.setPage(1);
+  }
+
   for (int i = 0; i < 3; i++) {
     if (containerUpdateTimeout[i] > 0 && millis() > containerUpdateTimeout[i]) {
       containerUpdateTimeout[i] = 0;
       dockerContainers[i] = dockerContainerCount[i];
       dockerContainerCount[i] = 0;
-      nextion.setText(i+1, "container", dockerContainers[i]);
+      nextion.setText(1, i+1, "container", dockerContainers[i]);
     }
   }
 
-    if (mqttClient.isConnected()) {
-        mqttClient.loop();
-    } else if ((mqttConnectionAttempts < 5 && millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout1)) ||
-                 millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout2)) {
-        connectToMQTT();
-    }
-    wd.checkin();  // resets the AWDT count
+  if (mqttClient.isConnected()) {
+      mqttClient.loop();
+  } else if ((mqttConnectionAttempts < 5 && millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout1)) ||
+                millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout2)) {
+      connectToMQTT();
+  }
+
+  wd.checkin();  // resets the AWDT count
 }

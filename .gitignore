@@ -1,5 +1,6 @@
 # None library project files
 secrets.h
+nextionSecrets.h
 
 # Visual Studio Code
 .vscode

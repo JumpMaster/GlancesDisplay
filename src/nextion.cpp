@@ -1,48 +1,111 @@
 #include "nextion.h"
+#include "NextionDownloadRK.h"
+#include "nextionSecrets.h"
 
-Nextion::Nextion()
-{
+Nextion::Nextion(USARTSerial &serial) : serial(serial) {
 }
 
-void Nextion::execute() {
-  nexSerial.print("\xFF\xFF\xFF");
-//   nexSerial.write(0xFF);
-//   nexSerial.write(0xFF);
-//   nexSerial.write(0xFF);
+void Nextion::doUpdate() {
+  displayDownload.withHostname(tftUploadServername).withPort(tftUploadPort).withPathPartOfUrl(tftUploadFilepath).withForceDownload();
+	displayDownload.setup();
+  firmwareUpdateInProgress = true;
 }
 
-void Nextion::run(String command) {
-  nexSerial.write(command);
-  execute();
+void Nextion::setPower(bool on) {
+  digitalWrite(A0, on);
+}
+
+void Nextion::setup() {
+  pinMode(A0, OUTPUT);
+  serial.begin(115200);
+}
+
+void Nextion::loop() {
+  if (firmwareUpdateInProgress) {
+	  displayDownload.loop();
+
+    if (displayDownload.getHasRun() && displayDownload.getIsDone()) {
+      Log.info("Upload finished");
+      nextionReady = false;
+      nextionStartup = false;
+      firmwareUpdateInProgress = false;
+    }
+  }
+
+  while (!firmwareUpdateInProgress && Serial1.available()) {
+    int byte = Serial1.read();
+
+    serialData[serialPosition++] = byte;
+    if (byte == 0xff && serialPosition >= 3) {
+      if (serialData[serialPosition-1] == 0xff &&
+          serialData[serialPosition-2] == 0xff &&
+          serialData[serialPosition-3] == 0xff) {
+        serialData[serialPosition-3] = '\0';
+        checkReturnCode(serialData, serialPosition-3);
+        serialPosition = 0;
+      }
+    }
+  }
+}
+
+void Nextion::checkReturnCode(char const *data, int length) {
+  if (length == 1) {
+    if (data[0] == 0x88) { // Nextion Ready
+      nextionReady = true;
+      return;
+    } else if (data[0] == 0x1a) {  // Invalid component
+      Log.info("Invalid component");
+      return;
+    }
+  } else if (length == 3) {
+    if (data[0]+data[1]+data[2] == 0) { // Nextion Startup
+      nextionStartup = true;
+      return;
+    }
+  }
+  Log.info("Length - %d", length);
+  Log.info("Return data char[0] - 0x%x", data[0]);
+}
+
+void Nextion::execute(char const *command) {
+  if (!nextionReady || firmwareUpdateInProgress) {
+    return;
+  }
+  serial.print(command);
+  serial.print("\xFF\xFF\xFF");
+}
+
+void Nextion::run(char const *command) {
+  // serial.write(command);
+  execute(command);
 }
 
 void Nextion::reset() {
-    nexSerial.print("rest");
-    execute();
+    execute("rest");
 }
 
 void Nextion::setBaud(int speed) {
   char buffer[100];
   sprintf(buffer, "baud=%d", speed);
-  nexSerial.print(buffer);
-  execute();
+  // serial.print(buffer);
+  execute(buffer);
 }
 
-void Nextion::setPic(const int page, const char* name, const int pic) {
+void Nextion::setPic(const int page, char const *name, const int pic) {
   char buffer[100];
   sprintf(buffer, "page%d.%s.pic=%d", page, name, pic);
-  nexSerial.print(buffer);
-  execute();
+  // serial.print(buffer);
+  execute(buffer);
 }
 
-void Nextion::setTextPercent(const uint8_t server, const char* label, const uint8_t value) {
+void Nextion::setTextPercent(const uint8_t page, const uint8_t server, char const *label, const uint8_t value) {
   char buffer[100];
-  sprintf(buffer, "s%dtxt%s.txt=\"%d%%\"", server, label, value);
-  nexSerial.print(buffer);
-  execute();
+  sprintf(buffer, "page%d.s%dtxt%s.txt=\"%d%%\"", page, server, label, value);
+  // serial.print(buffer);
+  execute(buffer);
 }
 
-void Nextion::setUptimeText(const uint8_t server, int uptime) {
+void Nextion::setUptimeText(const uint8_t page, const uint8_t server, int uptime) {
     char buffer[100];
     int days = uptime / (24 * 3600); 
     uptime = uptime % (24 * 3600); 
@@ -50,85 +113,87 @@ void Nextion::setUptimeText(const uint8_t server, int uptime) {
     uptime %= 3600; 
     int minutes = uptime / 60;
     if (days > 0) {
-        sprintf(buffer, "s%dtxtuptime.txt=\"%dd, %02d:%02d\"", server, days, hours, minutes);
+        sprintf(buffer, "page%d.s%dtxtuptime.txt=\"Uptime %dd, %02d:%02d\"", page, server, days, hours, minutes);
     } else {
-        sprintf(buffer, "s%dtxtuptime.txt=\"%02d:%02d\"", server, hours, minutes);
+        sprintf(buffer, "page%d.s%dtxtuptime.txt=\"Uptime %02d:%02d\"", page, server, hours, minutes);
     }
   
-  nexSerial.print(buffer);
-  execute();
+  // serial.print(buffer);
+  execute(buffer);
 }
 
-void Nextion::setLoadText(const uint8_t server, uint8_t load, const char* load_value) {
-  char buffer[100];
-  sprintf(buffer, "s%dtxtload%d.txt=\"%s\"", server, load, load_value);
-  nexSerial.print(buffer);
-  execute();
+void Nextion::setText(const uint8_t page, const int server, char const *name, int value) {
+  setText(page, server, name, value, "");
 }
 
-void Nextion::setText(const int server, const char* name, int value) {
-  setText(server, name, value, "");
-}
-
-void Nextion::setText(const int server, const char* name, int value, char* suffix) {
+void Nextion::setText(const uint8_t page, const int server, char const *name, int value, char *suffix) {
   char buffer[100];
   sprintf(buffer, "%d", value);
-  setText(server, name, buffer, suffix);
+  setText(page, server, name, buffer, suffix);
 }
 
-void Nextion::setText(const int server, const char* name, const char* value) {
-  setText(server, name, value, "");
+void Nextion::setText(const uint8_t page, const int server, char const *name, char const *value) {
+  setText(page, server, name, value, "");
 }
 
-void Nextion::setText(const int server, const char* name, const char* value, char* suffix) {
+void Nextion::setText(const uint8_t page, const int server, char const *name, char const *value, char *suffix) {
   char buffer[100];
-  sprintf(buffer, "s%dtxt%s.txt=\"%s%s\"", server, name, value, suffix);
-  nexSerial.print(buffer);
-  execute();
+  sprintf(buffer, "page%d.s%dtxt%s.txt=\"%s%s\"", page, server, name, value, suffix);
+  // serial.print(buffer);
+  execute(buffer);
 }
 
-void Nextion::setProgressBar(const uint8_t server, const uint32_t bar, uint8_t value) {
+void Nextion::setProgressBar(const uint8_t page, const uint8_t server, const uint32_t bar, uint8_t value) {
   char buffer[100];
   value = value == 0 ? 1 : value;
   if (bar == 1) {
-    sprintf(buffer, "s%dpbcpu.val=%d", server, value);
+    sprintf(buffer, "page%d.s%dpbcpu.val=%d", page, server, value);
   } else if (bar == 2) {
-    sprintf(buffer, "s%dpbmemory.val=%d", server, value);
+    sprintf(buffer, "page%d.s%dpbmemory.val=%d", page, server, value);
   } else if (bar == 3) {
-    sprintf(buffer, "s%dpbswap.val=%d", server, value);
+    sprintf(buffer, "page%d.s%dpbswap.val=%d", page, server, value);
   }
-  nexSerial.print(buffer);
-  execute();
+  // serial.print(buffer);
+  execute(buffer);
 }
 
-void Nextion::refreshComponent(const char* name) {
-  String cmd = "ref ";
-  cmd += name;
-  nexSerial.print(cmd);
-  execute();
+void Nextion::refreshComponent(char const *name) {
+  // String cmd = "ref ";
+  char buffer[100];
+  sprintf(buffer, "ref %s", name);
+  // cmd += name;
+  // serial.print(cmd);
+  execute(buffer);
 }
 
-void Nextion::setPage(const int page) {
-  nexSerial.print("page "+String(page, DEC));
-  execute();
+void Nextion::setPage(const uint8_t page) {
+  // serial.print("page "+String(page, DEC));
+  currentPage = page;
+  char buffer[8];
+  sprintf(buffer, "page %d", currentPage);
+  execute(buffer);
 }
 
-void Nextion::setBrightness(const int brightness) {
-  nexSerial.print("dim="+String(brightness, DEC));
-  execute();
+void Nextion::setBrightness(const uint8_t brightness) {
+  // serial.print("dim="+String(brightness, DEC));
+  char buffer[8];
+  sprintf(buffer, "dim=%d", brightness);
+  execute(buffer);
 }
 
 void Nextion::setSleep(const bool sleep) {
-  nexSerial.print("sleep="+String(sleep, DEC));
-  execute();
+  // serial.print("sleep="+String(sleep, DEC));
+  char buffer[8];
+  sprintf(buffer, "sleep=%d", sleep);
+  execute(buffer);
 }
 
 void Nextion::stopRefreshing() {
-  nexSerial.print("ref_stop");
-  execute();
+  // serial.print("ref_stop");
+  execute("ref_stop");
 }
 
 void Nextion::startRefreshing() {
-  nexSerial.print("ref_star");
-  execute();
+  // serial.print("ref_star");
+  execute("ref_star");
 }

@@ -33,17 +33,6 @@ uint32_t containerUpdateTimeout[3];
 
 Nextion nextion(Serial1);
 
-/*
-int toggleScreen(const char* data) {
-  pinMode(A0, OUTPUT);
-  if (digitalRead(A0) == HIGH) {
-    digitalWrite(A0, LOW);
-  } else {
-    digitalWrite(A0, HIGH);
-  }
-  return 0;
-}
-*/
 int startUpdate(const char* data) {
   nextion.doUpdate();
   return 0;

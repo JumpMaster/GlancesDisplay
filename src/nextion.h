@@ -13,7 +13,7 @@ public:
   void loop();
   void run(char const *command);
   void setBaud(int speed);
-  bool getIsReady() { return nextionReady;}
+  bool getIsReady() { return nextionReady && nextionVerified && !firmwareUpdateInProgress;}
   bool getIsStartup() { return nextionStartup;}
   void doUpdate();
   void setPic(const int page, char const *name, const int pic);
@@ -45,7 +45,9 @@ protected:
   USARTSerial &serial;
   bool firmwareUpdateInProgress = false;
   bool nextionReady = false;
+  bool nextionVerified = false;
   bool nextionStartup = false;
+  uint32_t lastReadyCheck = 0;
   uint8_t currentPage = 0;
 };
 

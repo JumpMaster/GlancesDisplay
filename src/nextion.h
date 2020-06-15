@@ -14,7 +14,6 @@ public:
   void run(char const *command);
   void setBaud(int speed);
   bool getIsReady() { return nextionReady && nextionVerified && !firmwareUpdateInProgress;}
-  bool getIsStartup() { return nextionStartup;}
   void doUpdate();
   void setPic(const int page, char const *name, const int pic);
   void setText(const uint8_t page, const int server, char const *name, int value);
@@ -33,9 +32,11 @@ public:
   void stopRefreshing();
   void startRefreshing();
   void reset();
-  void startDisplay() { setPower(true); }
-  void stopDisplay() { setPower(false); }
+  void powerOn() { setPower(true); }
+  void powerOff() { setPower(false); }
+
 protected:
+  void resetVariables();
   void setPower(bool on);
   void checkReturnCode(char const *data, int length);
   char serialData[100];
@@ -43,12 +44,19 @@ protected:
   NextionDownload displayDownload;//Serial1, 0);
   void execute(char const *command);
   USARTSerial &serial;
-  bool firmwareUpdateInProgress = false;
+  
   bool nextionReady = false;
   bool nextionVerified = false;
-  bool nextionStartup = false;
-  uint32_t lastReadyCheck = 0;
+  // bool nextionStartup = false;
+
+  bool powerState = false;
+  uint32_t powerStateChangedAt = 0;
+
   uint8_t currentPage = 0;
+
+  bool firmwareUpdateInProgress = false;
+  bool firmwareUpdateSuccessful = false;
+  uint32_t firmwareUploadCompletedAt = 0;
 };
 
 #endif

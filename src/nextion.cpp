@@ -5,14 +5,30 @@
 Nextion::Nextion(USARTSerial &serial) : serial(serial) {
 }
 
+void Nextion::resetVariables() {
+  nextionVerified = false;
+  nextionReady = false;
+  // nextionStartup = false;
+  currentPage = 0;
+}
+
 void Nextion::doUpdate() {
+  firmwareUpdateInProgress = true;
+  firmwareUpdateSuccessful = false;
+  firmwareUploadCompletedAt = 0;
+  resetVariables();
   displayDownload.withHostname(tftUploadServername).withPort(tftUploadPort).withPathPartOfUrl(tftUploadFilepath).withForceDownload();
 	displayDownload.setup();
-  firmwareUpdateInProgress = true;
 }
 
 void Nextion::setPower(bool on) {
   digitalWrite(A0, on);
+  powerState = on;
+  powerStateChangedAt = Time.now();
+
+  if (!on) {
+    resetVariables();
+  }
 }
 
 void Nextion::setup() {
@@ -22,14 +38,26 @@ void Nextion::setup() {
 }
 
 void Nextion::loop() {
+
   if (firmwareUpdateInProgress) {
 	  displayDownload.loop();
 
-    if (displayDownload.getHasRun() && displayDownload.getIsDone()) {
+    if (displayDownload.getIsDone()) {
       Log.info("Upload finished");
-      nextionReady = false;
-      nextionStartup = false;
       firmwareUpdateInProgress = false;
+      firmwareUploadCompletedAt = Time.now();
+    }
+  }
+
+  // Upload has completed.
+  if (!firmwareUpdateInProgress && firmwareUploadCompletedAt > 0) {
+    if (!nextionReady && Time.now() - firmwareUploadCompletedAt >= 10) {
+      Log.info("10+ seconds since firmware upload completed, something went wrong.");
+      firmwareUploadCompletedAt = 0; // for now lets stop here
+    } else if (nextionReady) {
+      firmwareUploadCompletedAt = 0;
+      Log.info("Firmware update completed successfully");
+      // Need to do something here to write the firmware update as successful.
     }
   }
 
@@ -47,12 +75,6 @@ void Nextion::loop() {
       }
     }
   }
-
-  if (nextionReady && !nextionVerified && lastReadyCheck+1000 < millis()) {
-    lastReadyCheck = millis();
-    serial.print("get txtready.txt");
-    serial.print("\xFF\xFF\xFF");
-  }
 }
 
 void Nextion::checkReturnCode(char const *data, int length) {
@@ -66,12 +88,13 @@ void Nextion::checkReturnCode(char const *data, int length) {
     }
   } else if (length == 3) {
     if (data[0]+data[1]+data[2] == 0) { // Nextion Startup
-      nextionStartup = true;
+      // nextionStartup = true;
       return;
     }
   } else {
     if (data[0] == 0x70) { // String data
-      if (!nextionVerified && strstr(data, "ready") != NULL) {
+      if (!nextionVerified && strstr(data, "glances") != NULL) {
+        Log.info("Firmware verified");
         nextionVerified = true;
         return;
       }

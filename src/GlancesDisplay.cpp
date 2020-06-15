@@ -38,6 +38,16 @@ int startUpdate(const char* data) {
   return 0;
 }
 
+int setPower(const char* data) {
+  if (strcmp(data, "on") == 0) {
+    nextion.powerOn();
+    return 1;
+  } else {
+    nextion.powerOff();
+    return 0;
+  }
+}
+
 static const char* bytesToHumanSize(const char* cBytes) {
   uint64_t bytes = strtoull(cBytes, NULL, 0);
 
@@ -199,7 +209,8 @@ STARTUP(startupMacro());
 
 void setup(void) {
     nextion.setup();
-    // nextion.startDisplay();
+    nextion.powerOff();
+
     waitFor(Particle.connected, 30000);
     
     do {
@@ -225,11 +236,10 @@ void setup(void) {
 
     Particle.function("run", runNextionCommand);
     Particle.function("startFirmwareUpdate", startUpdate);
-    // Particle.function("toggleScreen", toggleScreen);
+    Particle.function("setPower", setPower);
+
     Log.info("Boot complete. Reset count = %d", resetCount);
-    connectToMQTT();
-    nextion.startDisplay();
-    // Log.info("Nextion Startup:%d Ready:%d", nextion.getIsStartup(), nextion.getIsReady());
+    nextion.powerOn();
 }
 
 void loop() {
@@ -247,12 +257,15 @@ void loop() {
       nextion.setText(1, i+1, "container", dockerContainers[i]);
     }
   }
-
-  if (mqttClient.isConnected()) {
-      mqttClient.loop();
-  } else if ((mqttConnectionAttempts < 5 && millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout1)) ||
-                millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout2)) {
-      connectToMQTT();
+  if (nextion.getIsReady()) {
+    if (mqttClient.isConnected()) {
+        mqttClient.loop();
+    } else if ((mqttConnectionAttempts < 5 && millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout1)) ||
+                  millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout2)) {
+        connectToMQTT();
+    }
+  } else if (mqttClient.isConnected()) {
+    mqttClient.disconnect();
   }
 
   wd.checkin();  // resets the AWDT count

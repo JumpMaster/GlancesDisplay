@@ -490,7 +490,7 @@ void NextionDownload::cleanupState(void) {
 
 void NextionDownload::doneState(void) {
 	if (!isDone) {
-		Log.info("done");
+		// Log.info("done");
 		isDone = true;
 	}
 	// while (serial.available()) {

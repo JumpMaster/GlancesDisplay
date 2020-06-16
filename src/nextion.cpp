@@ -13,9 +13,9 @@ void Nextion::resetVariables() {
 }
 
 void Nextion::doUpdate() {
-  firmwareUpdateInProgress = true;
-  firmwareUpdateSuccessful = false;
+  upgradeState = UploadInProgress;
   firmwareUploadCompletedAt = 0;
+  firmwareUploadAttempt++;
   resetVariables();
   displayDownload.withHostname(tftUploadServername).withPort(tftUploadPort).withPathPartOfUrl(tftUploadFilepath).withForceDownload();
 	displayDownload.setup();
@@ -39,29 +39,47 @@ void Nextion::setup() {
 
 void Nextion::loop() {
 
-  if (firmwareUpdateInProgress) {
+  if (upgradeState == UploadInProgress) {
 	  displayDownload.loop();
 
     if (displayDownload.getIsDone()) {
       Log.info("Upload finished");
-      firmwareUpdateInProgress = false;
+      upgradeState = UploadComplete;
       firmwareUploadCompletedAt = Time.now();
     }
   }
 
   // Upload has completed.
-  if (!firmwareUpdateInProgress && firmwareUploadCompletedAt > 0) {
-    if (!nextionReady && Time.now() - firmwareUploadCompletedAt >= 10) {
-      Log.info("10+ seconds since firmware upload completed, something went wrong.");
-      firmwareUploadCompletedAt = 0; // for now lets stop here
-    } else if (nextionReady) {
+  if (upgradeState >= UploadComplete && firmwareUploadCompletedAt > 0) {
+    if (!nextionVerified && Time.now() - firmwareUploadCompletedAt >= 10) {
+      if (upgradeState == UploadComplete) {
+        if (firmwareUploadAttempt >= 3) {
+          Log.info("Firmware upload failed after %d attempts", firmwareUploadAttempt);
+          firmwareUploadCompletedAt = 0;
+          firmwareUploadAttempt = 0;
+          upgradeState = Idle;
+        } else {
+          Log.info("10+ seconds since firmware upload completed, something went wrong.");
+          upgradeState = UploadFailed_PowerOff;
+          powerOff();
+        }
+      } else if (upgradeState == UploadFailed_PowerOff && Time.now() - powerStateChangedAt > 5) {
+        powerOn();
+        upgradeState = UploadFailed_PowerOn;
+      } else if (upgradeState == UploadFailed_PowerOn && Time.now() - powerStateChangedAt > 5) {
+        Log.info("Firmware upload attempt %d", firmwareUploadAttempt+1);
+        doUpdate();
+      }
+    } else if (nextionVerified) {
       firmwareUploadCompletedAt = 0;
+      firmwareUploadAttempt = 0;
+      upgradeState = Idle;
       Log.info("Firmware update completed successfully");
       // Need to do something here to write the firmware update as successful.
     }
   }
 
-  while (!firmwareUpdateInProgress && Serial1.available()) {
+  while (upgradeState != UploadInProgress && Serial1.available()) {
     int byte = Serial1.read();
 
     serialData[serialPosition++] = byte;

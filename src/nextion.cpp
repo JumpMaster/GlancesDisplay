@@ -67,8 +67,15 @@ void Nextion::loop() {
         powerOn();
         upgradeState = UploadFailed_PowerOn;
       } else if (upgradeState == UploadFailed_PowerOn && Time.now() - powerStateChangedAt > 5) {
-        Log.info("Firmware upload attempt %d", firmwareUploadAttempt+1);
-        doUpdate();
+        if (nextionReady) {
+          Log.info("Starting firmware upload attempt %d", firmwareUploadAttempt+1);
+          doUpdate();
+        } else {
+          Log.info("Nextion is not ready after 5 seconds.  Aborting.");
+          firmwareUploadCompletedAt = 0;
+          firmwareUploadAttempt = 0;
+          upgradeState = Idle;
+        }
       }
     } else if (nextionVerified) {
       firmwareUploadCompletedAt = 0;

@@ -99,6 +99,8 @@ void Nextion::checkReturnCode(char const *data, int length) {
   if (length == 1) {
     if (data[0] == 0x88) { // Nextion Ready
       nextionReady = true;
+      currentPage = 0;
+      Log.info("Ready");
       return;
     } else if (data[0] == 0x1a) {  // Invalid component
       Log.info("Invalid component");
@@ -107,6 +109,7 @@ void Nextion::checkReturnCode(char const *data, int length) {
   } else if (length == 3) {
     if (data[0]+data[1]+data[2] == 0) { // Nextion Startup
       // nextionStartup = true;
+      Log.info("Startup");
       return;
     }
   } else {

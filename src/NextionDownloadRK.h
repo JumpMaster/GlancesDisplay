@@ -10,16 +10,13 @@ public:
 	 * eepromLocation is the location to store the download modification timestamp.
 	 * It must point to 32 available bytes.
 	 */
-	NextionDownload();//USARTSerial &serial, int eepromLocation);
+	NextionDownload(USARTSerial &serial, int eepromLocation);
 	virtual ~NextionDownload();
 
 	NextionDownload &withHostname(const char *hostname) { this->hostname = hostname; return *this; }
 	NextionDownload &withPort(int port) { this->port = port; return *this; }
 	NextionDownload &withPathPartOfUrl(const char *pathPartOfUrl) { this->pathPartOfUrl = pathPartOfUrl; return *this; }
-
-	NextionDownload &withCheckModeManual() { checkMode = CHECK_MODE_MANUAL; return *this; }
-	NextionDownload &withCheckModeAtBoot() { checkMode = CHECK_MODE_AT_BOOT; return *this; }
-
+	NextionDownload &withUpgradeAvailableCheckOnly() { this->upgradeCheckOnly = true; return *this; }
 	NextionDownload &withForceDownload() { forceDownload = true; return *this; }
 
 	NextionDownload &withRetryOnFailure() { retryOnFailure = true; return *this; }
@@ -29,11 +26,9 @@ public:
 
 	void loop();
 
-	bool networkReady();
+	void requestCheck(bool forceDownload = false);
 
-	void requestCheck();//bool forceDownload = false);
-
-	bool testDisplay();
+	// bool testDisplay();
 
 	size_t readData(char *buf, size_t bufSize, uint32_t timeoutMs, bool exitAfter05);
 
@@ -53,15 +48,14 @@ public:
 
 	bool getHasRun() const { return hasRun; }
 
+	bool upgradeAvailable() { return firmwareUpdateAvailable; }
+
+	void saveFirmwareVersion();
+
 	static const size_t BUFFER_SIZE = 4096; // This size is part of the Nextion protocol and can't really be changed
 	static const unsigned long RETRY_WAIT_TIME_MS = 30000;
 	static const unsigned long DATA_TIMEOUT_TIME_MS = 60000;
 	static const size_t EEPROM_BUFFER_SIZE = 32;
-
-	// Check mode constants
-	static const int CHECK_MODE_AT_BOOT = 0;
-	static const int CHECK_MODE_MANUAL = 1;
-
 
 protected:
 
@@ -76,16 +70,21 @@ protected:
 	void doneState(void);
 
 	// Settings
-	USARTSerial &serial = Serial1;
-
+	USARTSerial &serial;
+	int eepromLocation;
 	String hostname;
 	int port = 80;
 	String pathPartOfUrl;
-	int checkMode = CHECK_MODE_AT_BOOT;
 	bool forceDownload = false;
 	int downloadBaud = 115200;
 	bool retryOnFailure = false;
+	bool upgradeCheckOnly = false;
 	unsigned long restartWaitTime = 4000;
+
+	// Data
+	char appliedFirmwareModifiedDate[EEPROM_BUFFER_SIZE];
+	char availableFirmwareModifiedDate[EEPROM_BUFFER_SIZE];
+	bool firmwareUpdateAvailable = false;
 
 	// Misc stuff
 	TCPClient client;

@@ -13,8 +13,8 @@ public:
   void loop();
   void run(char const *command);
   void setBaud(int speed);
-  bool getIsReady() { return nextionReady && nextionVerified && upgradeState == Idle; }
-  void doUpdate();
+  bool getIsReady() { return nextionReady && nextionVerified && upgradeState < UploadInProgress; }
+  void doUpdate(bool force);
   void setPic(const int page, char const *name, const int pic);
   void setText(const uint8_t page, const int server, char const *name, int value);
   void setText(const uint8_t page, const int server, char const *name, int value, char *suffix);
@@ -38,7 +38,7 @@ public:
 protected:
   typedef enum {
     Idle = 0,
-    UpdateAvailable = 1,
+    CheckInProgress = 1,
     UploadInProgress = 2,
     UploadComplete = 3,
     UploadFailed_PowerOff = 4,
@@ -50,7 +50,7 @@ protected:
   void checkReturnCode(char const *data, int length);
   char serialData[100];
   uint8_t serialPosition = 0;
-  NextionDownload displayDownload;//Serial1, 0);
+  NextionDownload displayDownload;
   void execute(char const *command);
   USARTSerial &serial;
   uint8_t currentPage = 0;
@@ -64,6 +64,7 @@ protected:
 
   UpgradeStatus upgradeState = Idle;
   uint32_t firmwareUploadCompletedAt = 0;
+  uint32_t lastFirmwareUpdateCheck = 0;
   uint8_t firmwareUploadAttempt = 0;
 };
 

@@ -34,7 +34,11 @@ uint32_t containerUpdateTimeout[3];
 Nextion nextion(Serial1);
 
 int startUpdate(const char* data) {
-  nextion.doUpdate();
+  bool force = false;
+  if (strcmp(data, "force") == 0) {
+    force = true;
+  }
+  nextion.doUpdate(force);
   return 0;
 }
 

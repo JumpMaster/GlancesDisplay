@@ -2,8 +2,7 @@
 #include "NextionDownloadRK.h"
 #include "nextionSecrets.h"
 
-Nextion::Nextion(USARTSerial &serial) : serial(serial) {
-}
+Nextion::Nextion(USARTSerial &serial) : serial(serial), displayDownload(serial, 0) {}
 
 void Nextion::resetVariables() {
   nextionVerified = false;
@@ -12,12 +11,19 @@ void Nextion::resetVariables() {
   currentPage = 0;
 }
 
-void Nextion::doUpdate() {
+void Nextion::doUpdate(bool force) {
+  if (upgradeState != Idle) {
+    Log.info("upgradeState != Idle");
+    return;
+  }
   upgradeState = UploadInProgress;
   firmwareUploadCompletedAt = 0;
   firmwareUploadAttempt++;
   resetVariables();
-  displayDownload.withHostname(tftUploadServername).withPort(tftUploadPort).withPathPartOfUrl(tftUploadFilepath).withForceDownload();
+  displayDownload.withHostname(tftUploadServername).withPort(tftUploadPort).withPathPartOfUrl(tftUploadFilepath);
+  if (force) {
+    displayDownload.withForceDownload();
+  }
 	displayDownload.setup();
 }
 
@@ -39,14 +45,29 @@ void Nextion::setup() {
 
 void Nextion::loop() {
 
-  if (upgradeState == UploadInProgress) {
+  if (upgradeState == UploadInProgress || upgradeState == CheckInProgress) {
 	  displayDownload.loop();
 
     if (displayDownload.getIsDone()) {
-      Log.info("Upload finished");
-      upgradeState = UploadComplete;
-      firmwareUploadCompletedAt = Time.now();
+      if (upgradeState == UploadInProgress) {
+        Log.info("Upload finished");
+        upgradeState = UploadComplete;
+        firmwareUploadCompletedAt = Time.now();
+      } else if (upgradeState == CheckInProgress) {
+        upgradeState = Idle;
+        if (displayDownload.upgradeAvailable()) {
+          Log.info("Upgrade available");
+          doUpdate(false);
+        }
+      }
     }
+  }
+
+  if (Time.now() - lastFirmwareUpdateCheck > 300) {
+    lastFirmwareUpdateCheck = Time.now();
+    upgradeState = CheckInProgress;
+    displayDownload.withHostname(tftUploadServername).withPort(tftUploadPort).withPathPartOfUrl(tftUploadFilepath).withUpgradeAvailableCheckOnly();
+	  displayDownload.setup();
   }
 
   // Upload has completed.
@@ -69,7 +90,7 @@ void Nextion::loop() {
       } else if (upgradeState == UploadFailed_PowerOn && Time.now() - powerStateChangedAt > 5) {
         if (nextionReady) {
           Log.info("Starting firmware upload attempt %d", firmwareUploadAttempt+1);
-          doUpdate();
+          doUpdate(false);
         } else {
           Log.info("Nextion is not ready after 5 seconds.  Aborting.");
           firmwareUploadCompletedAt = 0;
@@ -81,8 +102,8 @@ void Nextion::loop() {
       firmwareUploadCompletedAt = 0;
       firmwareUploadAttempt = 0;
       upgradeState = Idle;
+      displayDownload.saveFirmwareVersion();
       Log.info("Firmware update completed successfully");
-      // Need to do something here to write the firmware update as successful.
     }
   }
 

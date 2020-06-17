@@ -3,8 +3,9 @@
 
 // https://www.itead.cc/blog/nextion-hmi-upload-protocol
 
-NextionDownload::NextionDownload(){}//USARTSerial &serial, int eepromLocation) : serial(serial), eepromLocation(eepromLocation)  {
-//}
+NextionDownload::NextionDownload(USARTSerial &serial, int eepromLocation) : serial(serial), eepromLocation(eepromLocation)  {
+	EEPROM.get(eepromLocation, appliedFirmwareModifiedDate);
+}
 
 NextionDownload::~NextionDownload() {
 }
@@ -12,23 +13,21 @@ NextionDownload::~NextionDownload() {
 void NextionDownload::setup() {
 	isDone = false;
 	hasRun = false;
+	if (upgradeCheckOnly) {
+		Log.info("Performing upgrade check");
+	} else {
+		Log.info("Starting firmware upload");
+	}
 	stateHandler = &NextionDownload::startState;
 	// delay(4000);
 	// tryBaud(9600);
 }
-
 
 void NextionDownload::loop() {
 	if (stateHandler != NULL) {
 		stateHandler(*this);
 	}
 }
-/*
-bool NextionDownload::testDisplay() {
-
-	return findBaud();
-}
-*/
 
 size_t NextionDownload::readData(char *buf, size_t bufSize, uint32_t timeoutMs, bool exitAfter05) {
 	unsigned long startMs = millis();
@@ -59,10 +58,10 @@ size_t NextionDownload::readData(char *buf, size_t bufSize, uint32_t timeoutMs, 
 }
 
 bool NextionDownload::readAndDiscard(uint32_t timeoutMs, bool exitAfter05) {
-	unsigned long timeoutMillis = millis() + timeoutMs;
+	unsigned long startMs = millis();
 	bool have05 = false;
 
-	while(millis() < timeoutMillis) {
+	while(millis() - startMs < timeoutMs) {
 		int c = serial.read();
 		if (c != -1) {
 			if (c == 0x05) {
@@ -116,8 +115,7 @@ bool NextionDownload::tryBaud(int baud) {
 
 	return result;
 }
-*/
-/*
+
 bool NextionDownload::findBaud() {
 	static const int bauds[] = {9600,115200,19200,57600,38400,4800,2400};
 	bool result = false;
@@ -148,31 +146,17 @@ bool NextionDownload::startDownload() {
 	return readAndDiscard(500, false);
 }
 
-
-bool NextionDownload::networkReady() {
-	return WiFi.ready();
-}
-
-
 void NextionDownload::startState(void) {
-	if (checkMode == CHECK_MODE_AT_BOOT) {
-		stateHandler = &NextionDownload::waitConnectState;
-	}
-	else {
-		stateHandler = &NextionDownload::doneState;
-	}
+	stateHandler = &NextionDownload::waitConnectState;
 }
 void NextionDownload::waitConnectState(void) {
-	// This is basically WiFi.ready() or Cellular.ready() depending
-	if (networkReady()) {
-		// We only get here when using checkMode == CHECK_MODE_AT_BOOT and network is ready
-
-		requestCheck();//forceDownload);
+	if (WiFi.ready()) {
+		requestCheck(forceDownload);
 	}
 }
 
-void NextionDownload::requestCheck() { //bool forceDownload /* = false */) {
-	// this->forceDownload = forceDownload;
+void NextionDownload::requestCheck(bool forceDownload /* = false */) {
+	this->forceDownload = forceDownload;
 
 	isDone = false;
 	hasRun = false;
@@ -190,8 +174,8 @@ void NextionDownload::requestCheck() { //bool forceDownload /* = false */) {
 	// firmware, or we gave up
 	hasRun = true;
 
-	// Make sure display can be found
 	/*
+	// Make sure display can be found
 	if (!findBaud()) {
 		Log.info("could not detect display");
 		stateHandler = &NextionDownload::cleanupState;
@@ -206,36 +190,20 @@ void NextionDownload::requestCheck() { //bool forceDownload /* = false */) {
 		char ifModifiedSince[64];
 		ifModifiedSince[0] = 0;
 
-		// char eepromBuffer[EEPROM_BUFFER_SIZE];
-		// EEPROM.get(eepromLocation, eepromBuffer);
-		// if (forceDownload) {
-		// 	Log.info("forceDownload");
-		// }
-		// else
-		// if (eepromBuffer[0] != 0xff) {
-		// 	snprintf(ifModifiedSince, sizeof(ifModifiedSince), "If-Modified-Since: %s GMT\r\n", eepromBuffer);
+		if (forceDownload) {
+			Log.info("forceDownload");
+		}
+		else
+		if (appliedFirmwareModifiedDate[0] != 0xff) {
+			snprintf(ifModifiedSince, sizeof(ifModifiedSince), "If-Modified-Since: %s GMT\r\n", appliedFirmwareModifiedDate);
 
-		// 	Log.info("If-Modified-Since %s", eepromBuffer);
-		// }
-		// else {		char ifModifiedSince[64];
-		// ifModifiedSince[0] = 0;
-
-		// char eepromBuffer[EEPROM_BUFFER_SIZE];
-		// EEPROM.get(eepromLocation, eepromBuffer);
-		// if (forceDownload) {
-		// 	Log.info("forceDownload");
-		// }
-		// else
-		// if (eepromBuffer[0] != 0xff) {
-		// 	snprintf(ifModifiedSince, sizeof(ifModifiedSince), "If-Modified-Since: %s GMT\r\n", eepromBuffer);
-
-		// 	Log.info("If-Modified-Since %s", eepromBuffer);
-		// }
-		// else {
-		// 	Log.info("no last modification date");
-		// }
-		// 	Log.info("no last modification date");
-		// }
+			if (!upgradeCheckOnly) {
+				Log.info("If-Modified-Since %s", appliedFirmwareModifiedDate);
+			}
+		}
+		else {
+			Log.info("no last modification date");
+		}
 
 		// Send request header
 		size_t count = snprintf(buffer, BUFFER_SIZE,
@@ -253,7 +221,9 @@ void NextionDownload::requestCheck() { //bool forceDownload /* = false */) {
 
 		bufferOffset = 0;
 
-		Log.info("sent request to %s:%d", hostname.c_str(), port);
+		if (!upgradeCheckOnly) {
+			Log.info("sent request to %s:%d", hostname.c_str(), port);
+		}
 		stateTime = millis();
 		stateHandler = &NextionDownload::headerWaitState;
 	}
@@ -283,7 +253,9 @@ void NextionDownload::headerWaitState(void) {
 	// Read some data
 	int count = client.read((uint8_t *)&buffer[bufferOffset], BUFFER_SIZE - bufferOffset);
 	if (count > 0) {
-		Log.info("bufferOffset=%d count=%d", bufferOffset, count);
+		if (!upgradeCheckOnly) {
+			Log.info("bufferOffset=%d count=%d", bufferOffset, count);
+		}
 
 		bufferOffset += count;
 		buffer[bufferOffset] = 0;
@@ -303,7 +275,11 @@ void NextionDownload::headerWaitState(void) {
 					code = atoi(cp);
 				}
 				if (code == 304) {
-					Log.info("file not modified, not downloading again");
+					if (upgradeCheckOnly) {
+						Log.info("file not modified");
+					} else {
+						Log.info("file not modified, not downloading again");
+					}
 					stateHandler = &NextionDownload::cleanupState;
 					return;
 				}
@@ -320,7 +296,6 @@ void NextionDownload::headerWaitState(void) {
 				// Note the data from the Last-Modified header
 				// Last-Modified: <day-name>, <day> <month> <year> <hour>:<minute>:<second> GMT
 				// Last-Modified: Wed, 21 Oct 2015 07:28:00 GMT
-				/*
 				char *cp = strstr(buffer, "Last-Modified:");
 				if (cp) {
 					cp += 14; // length of "Last-Modified:"
@@ -330,17 +305,23 @@ void NextionDownload::headerWaitState(void) {
 						cp++;
 					}
 
-					char eepromBuffer[EEPROM_BUFFER_SIZE];
+					// char eepromBuffer[EEPROM_BUFFER_SIZE];
 					size_t ii = 0;
 					while(*cp != '\r' && ii < (EEPROM_BUFFER_SIZE - 1)) {
-						eepromBuffer[ii++] = *cp++;
+						availableFirmwareModifiedDate[ii++] = *cp++;
 					}
-					eepromBuffer[ii] = 0;
+					availableFirmwareModifiedDate[ii] = 0;
 
-					Log.info("last modified: %s", eepromBuffer);
-					EEPROM.put(eepromLocation, eepromBuffer);
+					Log.info("last modified: %s", availableFirmwareModifiedDate);
+
+					firmwareUpdateAvailable = true;
+
+					if (upgradeCheckOnly) {
+						stateHandler = &NextionDownload::cleanupState;
+						return;
+					}
+
 				}
-				*/
 			}
 
 			// Note the data size from the Content-Length. This is required as the Nextion protocol requires
@@ -427,7 +408,7 @@ void NextionDownload::dataWaitState(void) {
 			// Got a whole buffer of data (or last partial buffer), send to display
 
 			uint8_t retryCount = 0;
-			while (retryCount < 3) {
+			while (true) {
 				Log.info("sending to display dataOffset=%d dataSize=%d", dataOffset, dataSize);
 				serial.write((const uint8_t *)buffer, bufferOffset);
 
@@ -460,7 +441,6 @@ void NextionDownload::restartWaitState(void) {
 	if (millis() - stateTime >= restartWaitTime) {
 		// Reset the baud rate
 		// findBaud();
-
 		stateHandler = &NextionDownload::cleanupState;
 	}
 }
@@ -490,11 +470,15 @@ void NextionDownload::cleanupState(void) {
 
 void NextionDownload::doneState(void) {
 	if (!isDone) {
-		// Log.info("done");
+		Log.info("done");
 		isDone = true;
+		forceDownload = false;
+		upgradeCheckOnly = false;
 	}
-	// while (serial.available()) {
-		// int byte = serial.read();
-		// Log.info("%ld - %d", millis(), byte);
-	// }
+}
+
+void NextionDownload::saveFirmwareVersion() {
+	EEPROM.put(eepromLocation, availableFirmwareModifiedDate);
+	strcpy(appliedFirmwareModifiedDate, availableFirmwareModifiedDate);
+	firmwareUpdateAvailable = false;
 }

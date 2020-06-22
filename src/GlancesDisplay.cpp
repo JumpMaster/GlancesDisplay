@@ -14,7 +14,7 @@ PapertrailLogHandler papertrailHandler(papertrailAddress, papertrailPort,
   // TOO MUCH!!! { “comm”, LOG_LEVEL_ALL }
 });
 
-ApplicationWatchdog wd(60000, System.reset);
+ApplicationWatchdog *wd;
 
 MQTT mqttClient(mqttServer, 1883, mqttCallback);
 uint32_t lastMqttConnectAttempt;
@@ -206,44 +206,45 @@ int runNextionCommand(const char* data) {
 SYSTEM_THREAD(ENABLED);
 
 void startupMacro() {
-    System.enableFeature(FEATURE_RESET_INFO);
-    System.enableFeature(FEATURE_RETAINED_MEMORY);
+  System.enableFeature(FEATURE_RESET_INFO);
+  System.enableFeature(FEATURE_RETAINED_MEMORY);
 }
 STARTUP(startupMacro());
 
 void setup(void) {
-    nextion.setup();
-    nextion.powerOff();
+  wd = new ApplicationWatchdog(60000, System.reset, 1536);
+  nextion.setup();
+  nextion.powerOff();
 
-    waitFor(Particle.connected, 30000);
-    
-    do {
-        resetTime = Time.now();
-        Particle.process();
-    } while (resetTime < 1500000000 || millis() < 10000);
-    
-    if (System.resetReason() == RESET_REASON_PANIC) {
-        if ((Time.now() - lastHardResetTime) < 120) {
-            resetCount++;
-        } else {
-            resetCount = 1;
-        }
-
-        lastHardResetTime = Time.now();
-
-        if (resetCount > 3) {
-            System.enterSafeMode();
-        }
+  waitFor(Particle.connected, 30000);
+  
+  do {
+    resetTime = Time.now();
+    Particle.process();
+  } while (resetTime < 1500000000 || millis() < 10000);
+  
+  if (System.resetReason() == RESET_REASON_PANIC) {
+    if ((Time.now() - lastHardResetTime) < 120) {
+      resetCount++;
     } else {
-        resetCount = 0;
+      resetCount = 1;
     }
 
-    Particle.function("run", runNextionCommand);
-    Particle.function("startFirmwareUpdate", startUpdate);
-    Particle.function("setPower", setPower);
+    lastHardResetTime = Time.now();
 
-    Log.info("Boot complete. Reset count = %d", resetCount);
-    nextion.powerOn();
+    if (resetCount > 3) {
+      System.enterSafeMode();
+    }
+  } else {
+    resetCount = 0;
+  }
+
+  Particle.function("run", runNextionCommand);
+  Particle.function("startFirmwareUpdate", startUpdate);
+  Particle.function("setPower", setPower);
+
+  Log.info("Boot complete. Reset count = %d", resetCount);
+  nextion.powerOn();
 }
 
 void loop() {
@@ -272,5 +273,5 @@ void loop() {
     mqttClient.disconnect();
   }
 
-  wd.checkin();  // resets the AWDT count
+  wd->checkin();  // resets the AWDT count
 }

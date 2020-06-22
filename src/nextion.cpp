@@ -123,7 +123,7 @@ void Nextion::loop() {
   }
 }
 
-void Nextion::checkReturnCode(char const *data, int length) {
+void Nextion::checkReturnCode(const char* data, int length) {
   if (length == 1) {
     if (data[0] == 0x88) { // Nextion Ready
       nextionReady = true;
@@ -152,14 +152,14 @@ void Nextion::checkReturnCode(char const *data, int length) {
   Log.info("Return data length - %d. char[0] - 0x%x", length, data[0]);
 }
 
-void Nextion::execute(char const *command) {
+void Nextion::execute(const char* command) {
   if (getIsReady()) {
     serial.print(command);
     serial.print("\xFF\xFF\xFF");
   }
 }
 
-void Nextion::run(char const *command) {
+void Nextion::run(const char* command) {
   execute(command);
 }
 
@@ -173,13 +173,13 @@ void Nextion::setBaud(int speed) {
   execute(buffer);
 }
 
-void Nextion::setPic(const int page, char const *name, const int pic) {
+void Nextion::setPic(const int page, const char* name, const int pic) {
   char buffer[100];
   sprintf(buffer, "page%d.%s.pic=%d", page, name, pic);
   execute(buffer);
 }
 
-void Nextion::setTextPercent(const uint8_t page, const uint8_t server, char const *label, const uint8_t value) {
+void Nextion::setTextPercent(const uint8_t page, const uint8_t server, const char* label, const uint8_t value) {
   char buffer[100];
   sprintf(buffer, "page%d.s%dtxt%s.txt=\"%d%%\"", page, server, label, value);
   execute(buffer);
@@ -201,21 +201,21 @@ void Nextion::setUptimeText(const uint8_t page, const uint8_t server, int uptime
   execute(buffer);
 }
 
-void Nextion::setText(const uint8_t page, const int server, char const *name, int value) {
+void Nextion::setText(const uint8_t page, const int server, const char* name, int value) {
   setText(page, server, name, value, "");
 }
 
-void Nextion::setText(const uint8_t page, const int server, char const *name, int value, char *suffix) {
+void Nextion::setText(const uint8_t page, const int server, const char* name, int value, const char* suffix) {
   char buffer[100];
   sprintf(buffer, "%d", value);
   setText(page, server, name, buffer, suffix);
 }
 
-void Nextion::setText(const uint8_t page, const int server, char const *name, char const *value) {
+void Nextion::setText(const uint8_t page, const int server, const char* name, const char* value) {
   setText(page, server, name, value, "");
 }
 
-void Nextion::setText(const uint8_t page, const int server, char const *name, char const *value, char *suffix) {
+void Nextion::setText(const uint8_t page, const int server, const char* name, const char* value, const char* suffix) {
   char buffer[100];
   sprintf(buffer, "page%d.s%dtxt%s.txt=\"%s%s\"", page, server, name, value, suffix);
   execute(buffer);
@@ -234,7 +234,7 @@ void Nextion::setProgressBar(const uint8_t page, const uint8_t server, const uin
   execute(buffer);
 }
 
-void Nextion::refreshComponent(char const *name) {
+void Nextion::refreshComponent(const char* name) {
   // String cmd = "ref ";
   char buffer[100];
   sprintf(buffer, "ref %s", name);

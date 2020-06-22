@@ -181,7 +181,7 @@ void Nextion::setPic(const int page, const char* name, const int pic) {
 
 void Nextion::setTextPercent(const uint8_t page, const uint8_t server, const char* label, const uint8_t value) {
   char buffer[100];
-  sprintf(buffer, "page%d.s%dtxt%s.txt=\"%d%%\"", page, server, label, value);
+  sprintf(buffer, "page%d.s%dtxt%s.txt=\"%d%%\"", page, server+1, label, value);
   execute(buffer);
 }
 
@@ -193,9 +193,9 @@ void Nextion::setUptimeText(const uint8_t page, const uint8_t server, int uptime
   uptime %= 3600;
   int minutes = uptime / 60;
   if (days > 0) {
-      sprintf(buffer, "page%d.s%dtxtuptime.txt=\"Uptime %dd, %02d:%02d\"", page, server, days, hours, minutes);
+      sprintf(buffer, "page%d.s%dtxtuptime.txt=\"Uptime %dd, %02d:%02d\"", page, server+1, days, hours, minutes);
   } else {
-      sprintf(buffer, "page%d.s%dtxtuptime.txt=\"Uptime %02d:%02d\"", page, server, hours, minutes);
+      sprintf(buffer, "page%d.s%dtxtuptime.txt=\"Uptime %02d:%02d\"", page, server+1, hours, minutes);
   }
   
   execute(buffer);
@@ -217,7 +217,7 @@ void Nextion::setText(const uint8_t page, const int server, const char* name, co
 
 void Nextion::setText(const uint8_t page, const int server, const char* name, const char* value, const char* suffix) {
   char buffer[100];
-  sprintf(buffer, "page%d.s%dtxt%s.txt=\"%s%s\"", page, server, name, value, suffix);
+  sprintf(buffer, "page%d.s%dtxt%s.txt=\"%s%s\"", page, server+1, name, value, suffix);
   execute(buffer);
 }
 
@@ -225,11 +225,23 @@ void Nextion::setProgressBar(const uint8_t page, const uint8_t server, const uin
   char buffer[100];
   value = value == 0 ? 1 : value;
   if (bar == 1) {
-    sprintf(buffer, "page%d.s%dpbcpu.val=%d", page, server, value);
+    sprintf(buffer, "page%d.s%dpbcpu.val=%d", page, server+1, value);
   } else if (bar == 2) {
-    sprintf(buffer, "page%d.s%dpbmemory.val=%d", page, server, value);
+    sprintf(buffer, "page%d.s%dpbmemory.val=%d", page, server+1, value);
   } else if (bar == 3) {
-    sprintf(buffer, "page%d.s%dpbswap.val=%d", page, server, value);
+    sprintf(buffer, "page%d.s%dpbswap.val=%d", page, server+1, value);
+  }
+  execute(buffer);
+}
+
+void Nextion::setForegroundColor(const uint8_t page, const uint8_t server, const uint32_t bar, uint16_t color) {
+  char buffer[100];
+  if (bar == 1) {
+    sprintf(buffer, "page%d.s%dpbcpu.pco=%d", page, server+1, color);
+  } else if (bar == 2) {
+    sprintf(buffer, "page%d.s%dpbmemory.pco=%d", page, server+1, color);
+  } else if (bar == 3) {
+    sprintf(buffer, "page%d.s%dpbswap.pco=%d", page, server+1, color);
   }
   execute(buffer);
 }

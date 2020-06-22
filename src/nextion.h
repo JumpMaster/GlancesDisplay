@@ -29,6 +29,7 @@ public:
   void setBrightness(const uint8_t brightness);
   void setSleep(const bool sleep);
   void setProgressBar(const uint8_t page, const uint8_t server, const uint32_t bar, const uint8_t value);
+  void setForegroundColor(const uint8_t page, const uint8_t server, const uint32_t bar, uint16_t color);
   void stopRefreshing();
   void startRefreshing();
   void reset();

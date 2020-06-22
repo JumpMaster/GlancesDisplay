@@ -33,6 +33,13 @@ uint32_t containerUpdateTimeout[3];
 
 Nextion nextion(Serial1);
 
+
+uint8_t cpuPct[3] = {254, 254, 254};
+uint8_t memoryPct[3] = {254, 254, 254};
+uint8_t swapPct[3] = {254, 254, 254};
+
+const uint16_t progressBarColors[3] = {9407, 64677, 64000};
+
 int startUpdate(const char* data) {
   bool force = false;
   if (strcmp(data, "force") == 0) {
@@ -96,24 +103,64 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
     uint8_t server = 0;
     if (strcmp(topics[1], "andromeda") == 0) {
-      server = 1;
+      server = 0;
     } else if (strcmp(topics[1], "pinwheel") == 0) {
-      server = 2;
+      server = 1;
     } else if (strcmp(topics[1], "qnap") == 0) {
-      server = 3;
+      server = 2;
     } else {
       return;
     }
 
     if (strcmp(topics[2], "cpu") == 0) {
       uint8_t cpu = atoi(p);
-      nextion.setProgressBar(1, server, 1, cpu);
-      nextion.setText(1, server, "cpu", cpu, "%");
+      if (cpuPct[server] != cpu) {
+
+        if (cpu < 75) {
+          if (cpuPct[server >= 75]) {
+            // Go for blue
+            nextion.setForegroundColor(1, server, 1, progressBarColors[0]);
+          }
+        } else if (cpu >= 75 && cpu < 90) {
+          if (cpuPct[server] < 75 || cpuPct[server] >= 90) {
+            // Go for yellow
+            nextion.setForegroundColor(1, server, 1, progressBarColors[1]);
+          }
+        } else if (cpuPct[server] < 90) {
+          // Go for Red
+          nextion.setForegroundColor(1, server, 1, progressBarColors[2]);
+        }
+
+        cpuPct[server] = cpu;
+        nextion.setProgressBar(1, server, 1, cpu);
+        nextion.setText(1, server, "cpu", cpu, "%");
+      }
     } else if (strcmp(topics[2], "mem") == 0) {
       if (strncmp(topics[3], "percent", 7) == 0) {
         uint8_t mem = atoi(p);
-        nextion.setProgressBar(1, server, 2, mem);
-        nextion.setText(1, server, "memory", mem, "%");
+
+        if (memoryPct[server] != mem) {
+
+          if (mem < 75) {
+            if (memoryPct[server >= 75]) {
+              // Go for blue
+              nextion.setForegroundColor(1, server, 2, progressBarColors[0]);
+            }
+          } else if (mem >= 75 && mem < 90) {
+            if (memoryPct[server] < 75 || memoryPct[server] >= 90) {
+              // Go for yellow
+              nextion.setForegroundColor(1, server, 2, progressBarColors[1]);
+            }
+          } else if (memoryPct[server] < 90) {
+            // Go for Red
+            nextion.setForegroundColor(1, server, 2, progressBarColors[2]);
+          }
+
+          memoryPct[server] = mem;
+          nextion.setProgressBar(1, server, 2, mem);
+          nextion.setText(1, server, "memory", mem, "%");
+        }
+
       } else if (strncmp(topics[3], "total", 5) == 0) {
         nextion.setText(1, server, "memtotal", bytesToHumanSize(p));
       } else if (strncmp(topics[3], "used", 4) == 0) {
@@ -123,8 +170,29 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
       }
     } else if (strcmp(topics[2], "memswap") == 0) {
       uint8_t swap = atoi(p);
-      nextion.setProgressBar(1, server, 3, swap);
-      nextion.setText(1, server, "swap", swap, "%");
+
+      if (swapPct[server] != swap) {
+
+        if (swap < 75) {
+          if (swapPct[server >= 75]) {
+            // Go for blue
+            nextion.setForegroundColor(1, server, 3, progressBarColors[0]);
+          }
+        } else if (swap >= 75 && swap < 90) {
+          if (swapPct[server] < 75 || swapPct[server] >= 90) {
+            // Go for yellow
+            nextion.setForegroundColor(1, server, 3, progressBarColors[1]);
+          }
+        } else if (swapPct[server] < 90) {
+          // Go for Red
+          nextion.setForegroundColor(1, server, 3, progressBarColors[2]);
+        }
+
+        swapPct[server] = swap;
+        nextion.setProgressBar(1, server, 3, swap);
+        nextion.setText(1, server, "swap", swap, "%");
+      }
+
     } else if (strcmp(topics[2], "uptime") == 0) {
       int uptime = atoi(p);
       nextion.setUptimeText(1, server, uptime);

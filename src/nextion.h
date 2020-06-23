@@ -16,20 +16,15 @@ public:
   bool getIsReady() { return nextionReady && nextionVerified && upgradeState < UploadInProgress; }
   void doUpdate(bool force);
   void setPic(const int page, const char* name, const int pic);
-  void setText(const uint8_t page, const int server, const char* name, int value);
-  void setText(const uint8_t page, const int server, const char* name, int value, const char* suffix);
-  void setText(const uint8_t page, const int server, const char* name, const char* value);
-  void setText(const uint8_t page, const int server, const char* name, const char* value, const char* suffix);
-  void setTextPercent(const uint8_t page, const uint8_t server, const char* label, const uint8_t value);
-  void setUptimeText(const uint8_t page, const uint8_t server, int uptime);
-  void setLoadText(const uint8_t page, const uint8_t server, uint8_t load, const char* load_value);
+  void setText(const char* name, const char* value);
   void refreshComponent(const char* name);
   uint8_t getPage() { return currentPage; }
   void setPage(const uint8_t page);
   void setBrightness(const uint8_t brightness);
   void setSleep(const bool sleep);
-  void setProgressBar(const uint8_t page, const uint8_t server, const uint32_t bar, const uint8_t value);
-  void setForegroundColor(const uint8_t page, const uint8_t server, const uint32_t bar, uint16_t color);
+  void setProgressBar(const char* name, const uint8_t value);
+  void setForegroundColor(const char* name, uint16_t color);
+
   void stopRefreshing();
   void startRefreshing();
   void reset();
@@ -58,7 +53,6 @@ protected:
 
   bool nextionReady = false;
   bool nextionVerified = false;
-  // bool nextionStartup = false;
 
   bool powerState = false;
   uint32_t powerStateChangedAt = 0;

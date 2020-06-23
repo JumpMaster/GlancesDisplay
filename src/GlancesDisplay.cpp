@@ -2,6 +2,7 @@
 #include "nextion.h"
 #include "papertrail.h"
 #include "secrets.h"
+#include "display.h"
 
 //  Stubs
 void mqttCallback(char* topic, byte* payload, unsigned int length);
@@ -32,13 +33,7 @@ uint8_t dockerContainers[3];
 uint32_t containerUpdateTimeout[3];
 
 Nextion nextion(Serial1);
-
-
-uint8_t cpuPct[3] = {254, 254, 254};
-uint8_t memoryPct[3] = {254, 254, 254};
-uint8_t swapPct[3] = {254, 254, 254};
-
-const uint16_t progressBarColors[3] = {9407, 64677, 64000};
+Display display(&nextion);
 
 int startUpdate(const char* data) {
   bool force = false;
@@ -59,29 +54,7 @@ int setPower(const char* data) {
   }
 }
 
-static const char* bytesToHumanSize(const char* cBytes) {
-  uint64_t bytes = strtoull(cBytes, NULL, 0);
-
-	char const *suffix[] = {"B", "K", "M", "G", "T"};
-	char length = sizeof(suffix) / sizeof(suffix[0]);
-
-	int i = 0;
-	double dblBytes = bytes;
-
-	if (bytes > 1024) {
-		for (i = 0; (bytes / 1024) > 0 && i<length-1; i++, bytes /= 1024)
-			dblBytes = bytes / 1024.0;
-	}
-
-	static char output[200];
-	sprintf(output, "%.01lf%s", dblBytes, suffix[i]);
-	return output;
-}
-
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
-
-  // if (firmwareUpdateInProgress)
-    // return;
 
     char p[length + 1];
     memcpy(p, payload, length);
@@ -114,130 +87,67 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
 
     if (strcmp(topics[2], "cpu") == 0) {
       uint8_t cpu = atoi(p);
-      if (cpuPct[server] != cpu) {
+      display.setProgressBar(server, Display::CPU, cpu);
 
-        if (cpu < 75) {
-          if (cpuPct[server >= 75]) {
-            // Go for blue
-            nextion.setForegroundColor(1, server, 1, progressBarColors[0]);
-          }
-        } else if (cpu >= 75 && cpu < 90) {
-          if (cpuPct[server] < 75 || cpuPct[server] >= 90) {
-            // Go for yellow
-            nextion.setForegroundColor(1, server, 1, progressBarColors[1]);
-          }
-        } else if (cpuPct[server] < 90) {
-          // Go for Red
-          nextion.setForegroundColor(1, server, 1, progressBarColors[2]);
-        }
-
-        cpuPct[server] = cpu;
-        nextion.setProgressBar(1, server, 1, cpu);
-        nextion.setText(1, server, "cpu", cpu, "%");
-      }
     } else if (strcmp(topics[2], "mem") == 0) {
       if (strncmp(topics[3], "percent", 7) == 0) {
         uint8_t mem = atoi(p);
-
-        if (memoryPct[server] != mem) {
-
-          if (mem < 75) {
-            if (memoryPct[server >= 75]) {
-              // Go for blue
-              nextion.setForegroundColor(1, server, 2, progressBarColors[0]);
-            }
-          } else if (mem >= 75 && mem < 90) {
-            if (memoryPct[server] < 75 || memoryPct[server] >= 90) {
-              // Go for yellow
-              nextion.setForegroundColor(1, server, 2, progressBarColors[1]);
-            }
-          } else if (memoryPct[server] < 90) {
-            // Go for Red
-            nextion.setForegroundColor(1, server, 2, progressBarColors[2]);
-          }
-
-          memoryPct[server] = mem;
-          nextion.setProgressBar(1, server, 2, mem);
-          nextion.setText(1, server, "memory", mem, "%");
-        }
-
+        display.setProgressBar(server, Display::Memory, mem);
       } else if (strncmp(topics[3], "total", 5) == 0) {
-        nextion.setText(1, server, "memtotal", bytesToHumanSize(p));
+        display.setByteText(server, "memtotal", p);
       } else if (strncmp(topics[3], "used", 4) == 0) {
-        nextion.setText(1, server, "memused", bytesToHumanSize(p));
+        display.setByteText(server, "memused", p);
       } else if (strncmp(topics[3], "free", 4) == 0) {
-        nextion.setText(1, server, "memfree", bytesToHumanSize(p));
+        display.setByteText(server, "memfree", p);
       }
     } else if (strcmp(topics[2], "memswap") == 0) {
       uint8_t swap = atoi(p);
-
-      if (swapPct[server] != swap) {
-
-        if (swap < 75) {
-          if (swapPct[server >= 75]) {
-            // Go for blue
-            nextion.setForegroundColor(1, server, 3, progressBarColors[0]);
-          }
-        } else if (swap >= 75 && swap < 90) {
-          if (swapPct[server] < 75 || swapPct[server] >= 90) {
-            // Go for yellow
-            nextion.setForegroundColor(1, server, 3, progressBarColors[1]);
-          }
-        } else if (swapPct[server] < 90) {
-          // Go for Red
-          nextion.setForegroundColor(1, server, 3, progressBarColors[2]);
-        }
-
-        swapPct[server] = swap;
-        nextion.setProgressBar(1, server, 3, swap);
-        nextion.setText(1, server, "swap", swap, "%");
-      }
-
+      display.setProgressBar(server, Display::Swap, swap);
     } else if (strcmp(topics[2], "uptime") == 0) {
       int uptime = atoi(p);
-      nextion.setUptimeText(1, server, uptime);
+      display.setUptimeText(server, uptime);
     } else if (strcmp(topics[2], "load") == 0) {
       if (strncmp(topics[3], "min15", 5) == 0) {
-        nextion.setText(1, server, "load15", p);
+        display.setText(server, "load15", p);
       } else if (strncmp(topics[3], "min5", 4) == 0) {
-        nextion.setText(1, server, "load5", p);
+        display.setText(server, "load5", p);
       } else if (strncmp(topics[3], "min1", 4) == 0) {
-        nextion.setText(1, server, "load1", p);
+        display.setText(server, "load1", p);
       }
     } else if (strcmp(topics[2], "sensors") == 0) {
       if (strncmp(topics[4], "value", 5) == 0) {
         if (strcmp(topics[3], "Core_0") == 0) {
-          nextion.setText(1, server, "core0", p, "C");
+          display.setTemperatureText(server, "core0", p);//, "C");
         } else if (strcmp(topics[3], "Core_1") == 0) {
-          nextion.setText(1, server, "core1", p, "C");
+          display.setTemperatureText(server, "core1", p);//), "C");
         }
       }
     } else if (strcmp(topics[2], "docker") == 0) {
       if (strncmp(topics[topicLevels-1], "key", 3) == 0) {
-        dockerContainerCount[server-1]++;
-        containerUpdateTimeout[server-1] = millis()+1000;
+        dockerContainerCount[server]++;
+        containerUpdateTimeout[server] = millis()+1000;
       }
     } else if (strcmp(topics[2], "network") == 0) {
       if (strcmp(topics[3], "eno1") == 0 || strcmp(topics[3], "eth0") == 0) {
         if (strncmp(topics[4], "tx", 2) == 0) {
-          nextion.setText(1, server, "nictx", bytesToHumanSize(p));
+          display.setByteText(server, "nictx", p);
         } else if (strncmp(topics[4], "rx", 2) == 0) {
-          nextion.setText(1, server, "nicrx", bytesToHumanSize(p));
+          display.setByteText(server, "nicrx", p);
         }
       }
     } else if (strcmp(topics[2], "fs") == 0) {
       if (strcmp(topics[3], "_share_CACHEDEV1_DATA") == 0 ||
           strcmp(topics[3], "_") == 0) {
         if (strncmp(topics[4], "size", 4) == 0) {
-          nextion.setText(1, server, "fs1total", bytesToHumanSize(p));
+          display.setByteText(server, "fs1total", p);
         } else if (strncmp(topics[4], "used", 4) == 0) {
-          nextion.setText(1, server, "fs1used", bytesToHumanSize(p));
+          display.setByteText(server, "fs1used", p);
         }        
       } else if (strcmp(topics[3], "_gluster") == 0) {
         if (strncmp(topics[4], "size", 4) == 0) {
-          nextion.setText(1, server, "fs2total", bytesToHumanSize(p));
+          display.setByteText(server, "fs2total", p);
         } else if (strncmp(topics[4], "used", 4) == 0) {
-          nextion.setText(1, server, "fs2used", bytesToHumanSize(p));
+          display.setByteText(server, "fs2used", p);
         }        
       }
     }
@@ -292,7 +202,7 @@ void setup(void) {
   } while (resetTime < 1500000000 || millis() < 10000);
   
   if (System.resetReason() == RESET_REASON_PANIC) {
-    if ((Time.now() - lastHardResetTime) < 120) {
+    if ((Time.now() - lastHardResetTime) < 180) {
       resetCount++;
     } else {
       resetCount = 1;
@@ -327,7 +237,7 @@ void loop() {
       containerUpdateTimeout[i] = 0;
       dockerContainers[i] = dockerContainerCount[i];
       dockerContainerCount[i] = 0;
-      nextion.setText(1, i+1, "container", dockerContainers[i]);
+      display.setText(i, "container", dockerContainers[i]);
     }
   }
   if (nextion.getIsReady()) {

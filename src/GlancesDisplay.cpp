@@ -2,7 +2,7 @@
 #include "nextion.h"
 #include "papertrail.h"
 #include "secrets.h"
-#include "display.h"
+#include "nodeStats.h"
 
 //  Stubs
 void mqttCallback(char* topic, byte* payload, unsigned int length);
@@ -33,7 +33,7 @@ uint8_t dockerContainers[3];
 uint32_t containerUpdateTimeout[3];
 
 Nextion nextion(Serial1);
-Display display(&nextion);
+NodeStats nodeStats(&nextion);
 
 int startUpdate(const char* data) {
   bool force = false;
@@ -86,40 +86,35 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     }
 
     if (strcmp(topics[2], "cpu") == 0) {
-      uint8_t cpu = atoi(p);
-      display.setProgressBar(server, Display::CPU, cpu);
-
+      nodeStats.setStat(server, NodeStats::CPUPercent, p);
     } else if (strcmp(topics[2], "mem") == 0) {
       if (strncmp(topics[3], "percent", 7) == 0) {
-        uint8_t mem = atoi(p);
-        display.setProgressBar(server, Display::Memory, mem);
+        nodeStats.setStat(server, NodeStats::MemoryPercent, p);
       } else if (strncmp(topics[3], "total", 5) == 0) {
-        display.setByteText(server, "memtotal", p);
+        nodeStats.setStat(server, NodeStats::MemoryTotal, p);
       } else if (strncmp(topics[3], "used", 4) == 0) {
-        display.setByteText(server, "memused", p);
+        nodeStats.setStat(server, NodeStats::MemoryUsed, p);
       } else if (strncmp(topics[3], "free", 4) == 0) {
-        display.setByteText(server, "memfree", p);
+        nodeStats.setStat(server, NodeStats::MemoryFree, p);
       }
     } else if (strcmp(topics[2], "memswap") == 0) {
-      uint8_t swap = atoi(p);
-      display.setProgressBar(server, Display::Swap, swap);
+      nodeStats.setStat(server, NodeStats::SwapPercent, p);
     } else if (strcmp(topics[2], "uptime") == 0) {
-      int uptime = atoi(p);
-      display.setUptimeText(server, uptime);
+      nodeStats.setStat(server, NodeStats::Uptime, p);
     } else if (strcmp(topics[2], "load") == 0) {
       if (strncmp(topics[3], "min15", 5) == 0) {
-        display.setText(server, "load15", p);
+        nodeStats.setStat(server, NodeStats::Load1, p);
       } else if (strncmp(topics[3], "min5", 4) == 0) {
-        display.setText(server, "load5", p);
+        nodeStats.setStat(server, NodeStats::Load5, p);
       } else if (strncmp(topics[3], "min1", 4) == 0) {
-        display.setText(server, "load1", p);
+        nodeStats.setStat(server, NodeStats::Load15, p);
       }
     } else if (strcmp(topics[2], "sensors") == 0) {
       if (strncmp(topics[4], "value", 5) == 0) {
         if (strcmp(topics[3], "Core_0") == 0) {
-          display.setTemperatureText(server, "core0", p);//, "C");
+          nodeStats.setStat(server, NodeStats::TemperatureCore0, p);
         } else if (strcmp(topics[3], "Core_1") == 0) {
-          display.setTemperatureText(server, "core1", p);//), "C");
+          nodeStats.setStat(server, NodeStats::TemperatureCore1, p);
         }
       }
     } else if (strcmp(topics[2], "docker") == 0) {
@@ -130,24 +125,24 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     } else if (strcmp(topics[2], "network") == 0) {
       if (strcmp(topics[3], "eno1") == 0 || strcmp(topics[3], "eth0") == 0) {
         if (strncmp(topics[4], "tx", 2) == 0) {
-          display.setByteText(server, "nictx", p);
+          nodeStats.setStat(server, NodeStats::NicTX, p);
         } else if (strncmp(topics[4], "rx", 2) == 0) {
-          display.setByteText(server, "nicrx", p);
+          nodeStats.setStat(server, NodeStats::NicRX, p);
         }
       }
     } else if (strcmp(topics[2], "fs") == 0) {
       if (strcmp(topics[3], "_share_CACHEDEV1_DATA") == 0 ||
           strcmp(topics[3], "_") == 0) {
         if (strncmp(topics[4], "size", 4) == 0) {
-          display.setByteText(server, "fs1total", p);
+          nodeStats.setStat(server, NodeStats::FS1Total, p);
         } else if (strncmp(topics[4], "used", 4) == 0) {
-          display.setByteText(server, "fs1used", p);
+          nodeStats.setStat(server, NodeStats::FS1Used, p);
         }        
       } else if (strcmp(topics[3], "_gluster") == 0) {
         if (strncmp(topics[4], "size", 4) == 0) {
-          display.setByteText(server, "fs2total", p);
+          nodeStats.setStat(server, NodeStats::FS2Total, p);
         } else if (strncmp(topics[4], "used", 4) == 0) {
-          display.setByteText(server, "fs2used", p);
+          nodeStats.setStat(server, NodeStats::FS2Used, p);
         }        
       }
     }
@@ -220,6 +215,7 @@ void setup(void) {
   Particle.function("run", runNextionCommand);
   Particle.function("startFirmwareUpdate", startUpdate);
   Particle.function("setPower", setPower);
+  Particle.publishVitals(900);
 
   Log.info("Boot complete. Reset count = %d", resetCount);
   nextion.powerOn();
@@ -235,9 +231,8 @@ void loop() {
   for (int i = 0; i < 3; i++) {
     if (containerUpdateTimeout[i] > 0 && millis() > containerUpdateTimeout[i]) {
       containerUpdateTimeout[i] = 0;
-      dockerContainers[i] = dockerContainerCount[i];
+      nodeStats.setStat(i, NodeStats::DockerContainers, dockerContainerCount[i]);
       dockerContainerCount[i] = 0;
-      display.setText(i, "container", dockerContainers[i]);
     }
   }
   if (nextion.getIsReady()) {

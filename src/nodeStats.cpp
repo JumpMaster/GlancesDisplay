@@ -171,7 +171,7 @@ void NodeStats::setStat(uint8_t node, Stats stat, const char* rawValue) {
 void NodeStats::updateDisplay(uint8_t node, Stats stat) {
   if (!nextion->getIsReady())
     return;
-    
+
   switch (stat) {
     case Uptime:
       setUptimeText(node, uptime[node]);

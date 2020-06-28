@@ -48,7 +48,7 @@ protected:
 
   const uint16_t progressBarColors[3] = {9407, 64677, 64000};
 
-  uint16_t uptime[3];
+  uint32_t uptime[3];
   uint8_t cpuPercent[3];
   uint64_t memFree[3];
   uint64_t memUsed[3];

@@ -22,15 +22,15 @@ uint32_t lastMqttConnectAttempt;
 const int mqttConnectAtemptTimeout1 = 5000;
 const int mqttConnectAtemptTimeout2 = 30000;
 unsigned int mqttConnectionAttempts;
+
 uint32_t resetTime = 0;
 retained uint32_t lastHardResetTime;
 retained int resetCount;
-char serialData[100];
-uint8_t serialPosition;
 
 uint8_t dockerContainerCount[3];
 uint8_t dockerContainers[3];
 uint32_t containerUpdateTimeout[3];
+const uint16_t containerCountTimeout = 250;
 
 Nextion nextion(Serial1);
 NodeStats nodeStats(&nextion);
@@ -120,7 +120,7 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
     } else if (strcmp(topics[2], "docker") == 0) {
       if (strncmp(topics[topicLevels-1], "key", 3) == 0) {
         dockerContainerCount[server]++;
-        containerUpdateTimeout[server] = millis()+1000;
+        containerUpdateTimeout[server] = millis()+containerCountTimeout;
       }
     } else if (strcmp(topics[2], "network") == 0) {
       if (strcmp(topics[3], "eno1") == 0 || strcmp(topics[3], "eth0") == 0) {

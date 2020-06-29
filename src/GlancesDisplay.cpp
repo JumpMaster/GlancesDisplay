@@ -30,7 +30,7 @@ retained int resetCount;
 uint8_t dockerContainerCount[3];
 uint8_t dockerContainers[3];
 uint32_t containerUpdateTimeout[3];
-const uint16_t containerCountTimeout = 250;
+const uint16_t containerCountTimeout = 500;
 
 Nextion nextion(Serial1);
 NodeStats nodeStats(&nextion);
@@ -137,13 +137,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
           nodeStats.setStat(server, NodeStats::FS1Total, p);
         } else if (strncmp(topics[4], "used", 4) == 0) {
           nodeStats.setStat(server, NodeStats::FS1Used, p);
-        }        
+        }
       } else if (strcmp(topics[3], "_gluster") == 0) {
         if (strncmp(topics[4], "size", 4) == 0) {
           nodeStats.setStat(server, NodeStats::FS2Total, p);
         } else if (strncmp(topics[4], "used", 4) == 0) {
           nodeStats.setStat(server, NodeStats::FS2Used, p);
-        }        
+        }
       }
     }
 }

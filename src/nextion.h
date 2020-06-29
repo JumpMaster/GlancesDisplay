@@ -13,7 +13,9 @@ public:
   void loop();
   void run(const char* command);
   void setBaud(int speed);
-  bool getIsReady() { return nextionReady && nextionVerified && upgradeState < UploadInProgress; }
+  void sendConnect() { execute("connect"); }
+  void getVersion() { execute("get global.version.txt"); }
+  bool getIsReady() { return nextionReady && nextionVerified && nextionConnected && upgradeState < UploadInProgress; }
   void doUpdate(bool force);
   void setPic(const int page, const char* name, const int pic);
   void setText(const char* name, const char* value);
@@ -53,6 +55,7 @@ protected:
 
   bool nextionReady = false;
   bool nextionVerified = false;
+  bool nextionConnected = false;
 
   bool powerState = false;
   uint32_t powerStateChangedAt = 0;
@@ -61,6 +64,8 @@ protected:
   uint32_t firmwareUploadCompletedAt = 0;
   uint32_t lastFirmwareUpdateCheck = 0;
   uint8_t firmwareUploadAttempt = 0;
+
+  char serialNumber[17];  // D264C4C7E3254022 / A13C34013DA9DD38
 };
 
 #endif

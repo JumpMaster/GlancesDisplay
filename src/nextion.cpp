@@ -39,7 +39,7 @@ void Nextion::setPower(bool on) {
 void Nextion::setup() {
   pinMode(A0, OUTPUT);
   digitalWrite(A0, LOW);
-  serial.begin(115200);
+  serial.begin(921600);
 }
 
 void Nextion::loop() {
@@ -61,14 +61,14 @@ void Nextion::loop() {
       }
     }
   }
-
+/*
   if (Time.now() - lastFirmwareUpdateCheck > 300) {
     lastFirmwareUpdateCheck = Time.now();
     upgradeState = CheckInProgress;
     displayDownload.withHostname(tftUploadServername).withPort(tftUploadPort).withPathPartOfUrl(tftUploadFilepath).withUpgradeAvailableCheckOnly();
 	  displayDownload.setup();
   }
-
+*/
   // Upload has completed.
   if (upgradeState >= UploadComplete && firmwareUploadCompletedAt > 0) {
     if (!nextionVerified && Time.now() - firmwareUploadCompletedAt >= 10) {
@@ -123,36 +123,43 @@ void Nextion::loop() {
 }
 
 void Nextion::checkReturnCode(const char* data, int length) {
-  if (length == 1) {
-    if (data[0] == 0x88) { // Nextion Ready
-      nextionReady = true;
-      currentPage = 0;
-      Log.info("Ready");
-      return;
-    } else if (data[0] == 0x1a) {  // Invalid component
-      Log.info("Invalid component");
-      return;
-    }
-  } else if (length == 3) {
-    if (data[0]+data[1]+data[2] == 0) { // Nextion Startup
-      // nextionStartup = true;
-      Log.info("Startup");
-      return;
-    }
-  } else {
-    if (data[0] == 0x70) { // String data
+  switch (data[0]) {
+    case 0: // Startup
+      if (data[0]+data[1]+data[2] == 0) { // Nextion Startup
+        // nextionStartup = true;
+        Log.info("Startup");
+        return;
+      }
+      break;
+    case 0x63: // Connect
+      Log.info(data);
+      nextionConnected = true;
+      getVersion();
+      break;
+    case 0x70: // String data
       if (!nextionVerified && strstr(data, "glances") != NULL) {
         Log.info("Firmware verified");
         nextionVerified = true;
-        return;
       }
-    }
+      Log.info(data);
+      break;
+    case 0x88: // Ready
+      nextionReady = true;
+      currentPage = 0;
+      Log.info("Ready");
+      sendConnect();
+      break;
+    case 0x1a: // Invalid component
+      Log.info("Invalid component");
+      break;
+    default:
+      Log.info("Return data length - %d. char[0] - 0x%x", length, data[0]);
+      break;
   }
-  Log.info("Return data length - %d. char[0] - 0x%x", length, data[0]);
 }
 
 void Nextion::execute(const char* command) {
-  if (getIsReady()) {
+  if (upgradeState <= CheckInProgress) {
     serial.print(command);
     serial.print("\xFF\xFF\xFF");
   }

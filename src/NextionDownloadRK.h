@@ -76,7 +76,7 @@ protected:
 	int port = 80;
 	String pathPartOfUrl;
 	bool forceDownload = false;
-	int downloadBaud = 115200;
+	int downloadBaud = 921600;
 	bool retryOnFailure = false;
 	bool upgradeCheckOnly = false;
 	unsigned long restartWaitTime = 4000;

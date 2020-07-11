@@ -2,7 +2,7 @@
 #define NodeStats_h
 
 #include "Particle.h"
-#include "nextion.h"
+#include "TJC.h"
 
 class NodeStats
 {
@@ -29,11 +29,12 @@ public:
       DockerContainers = 18,
   } Stats;
 
-  NodeStats(Nextion* nextion);
+  NodeStats(TJC* tjc);
   void setStat(uint8_t node, Stats stat, const char* rawValue);
   void setStat(uint8_t node, Stats stat, uint8_t value);
+  void fullRefresh();
 protected:
-  Nextion* nextion;
+  TJC* tjc;
 
   void setUptimeText(const uint8_t node, uint64_t uptime);
   void setText(const uint8_t node, const char* objName, const uint8_t value);

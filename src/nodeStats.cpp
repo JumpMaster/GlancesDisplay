@@ -1,6 +1,6 @@
 #include "nodeStats.h"
 
-NodeStats::NodeStats(Nextion* nextion) { this->nextion = nextion; }
+NodeStats::NodeStats(TJC* tjc) { this->tjc = tjc; }
 
 void NodeStats::setStat(uint8_t node, Stats stat, uint8_t value) {
   char rawValue[4];
@@ -169,7 +169,7 @@ void NodeStats::setStat(uint8_t node, Stats stat, const char* rawValue) {
 }
 
 void NodeStats::updateDisplay(uint8_t node, Stats stat) {
-  if (!nextion->getIsReady())
+  if (!tjc->getIsReady())
     return;
 
   switch (stat) {
@@ -236,6 +236,30 @@ void NodeStats::updateDisplay(uint8_t node, Stats stat) {
   }
 }
 
+void NodeStats::fullRefresh() {
+    for (uint8_t node = 0; node < 3; node++) {
+        updateDisplay(node, Uptime);
+        updateDisplay(node, CPUPercent);
+        updateDisplay(node, MemoryFree);
+        updateDisplay(node, MemoryUsed);
+        updateDisplay(node, MemoryTotal);
+        updateDisplay(node, MemoryPercent);
+        updateDisplay(node, SwapPercent);
+        updateDisplay(node, Load1);
+        updateDisplay(node, Load5);
+        updateDisplay(node, Load15);
+        updateDisplay(node, TemperatureCore0);
+        updateDisplay(node, TemperatureCore1);
+        updateDisplay(node, NicTX);
+        updateDisplay(node, NicRX);
+        updateDisplay(node, FS1Used);
+        updateDisplay(node, FS1Total);
+        updateDisplay(node, FS2Used);
+        updateDisplay(node, FS2Total);
+        updateDisplay(node, DockerContainers);
+    }
+}
+
 
 void NodeStats::setTextDouble(const uint8_t node, const char* field, double value) {
   char text[100];
@@ -267,7 +291,7 @@ void NodeStats::setText(const uint8_t node, const char* obj, const uint8_t value
 void NodeStats::setText(const uint8_t node, const char* obj, const char* value) {
   char objName[15];
   sprintf(objName, "s%dtxt%s", node, obj);
-  nextion->setText(objName, value);
+  tjc->setText(objName, value);
 }
 
 
@@ -289,7 +313,7 @@ void NodeStats::setUptimeText(const uint8_t node, uint64_t uptime) {
     sprintf(value, "Uptime %02d:%02d", hours, minutes);
   }
 
-  nextion->setText(objName, value);
+  tjc->setText(objName, value);
 }
 
 
@@ -300,16 +324,16 @@ void NodeStats::setProgressBar(uint8_t node, const char* obj, uint8_t value) {
 
     if (value < 75) {
       // Go for blue
-      nextion->setForegroundColor(objName, progressBarColors[0]);
+      tjc->setForegroundColor(objName, progressBarColors[0]);
     } else if (value >= 75 && value < 90) {
       // Go for yellow
-      nextion->setForegroundColor(objName, progressBarColors[1]);
+      tjc->setForegroundColor(objName, progressBarColors[1]);
     } else {
       // Go for red
-      nextion->setForegroundColor(objName, progressBarColors[2]);
+      tjc->setForegroundColor(objName, progressBarColors[2]);
     }
 
-    nextion->setProgressBar(objName, value);
+    tjc->setProgressBar(objName, value);
 }
 
 

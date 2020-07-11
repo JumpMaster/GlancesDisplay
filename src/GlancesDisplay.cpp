@@ -1,5 +1,6 @@
 #include "mqtt.h"
-#include "nextion.h"
+// #include "nextion.h"
+#include "TJC.h"
 #include "papertrail.h"
 #include "secrets.h"
 #include "nodeStats.h"
@@ -32,26 +33,21 @@ uint8_t dockerContainers[3];
 uint32_t containerUpdateTimeout[3];
 const uint16_t containerCountTimeout = 500;
 
-Nextion nextion(Serial1);
-NodeStats nodeStats(&nextion);
+// Nextion nextion(Serial1);
+TJC tjc(Serial1, 921600);
+NodeStats nodeStats(&tjc);
 
-int startUpdate(const char* data) {
-  bool force = false;
-  if (strcmp(data, "force") == 0) {
-    force = true;
-  }
-  nextion.doUpdate(force);
-  return 0;
-}
-
-int setPower(const char* data) {
-  if (strcmp(data, "on") == 0) {
-    nextion.powerOn();
-    return 1;
-  } else {
-    nextion.powerOff();
-    return 0;
-  }
+int runUpdate(const char* data) {
+    bool firmware = false;
+	if (strcmp("firmware", data) == 0) {
+		// tjcDownload.start(TJCDownload::TFT_FIRMWARE);
+        firmware = true;
+    }
+	// } else {
+		// tjcDownload.start(TJCDownload::JSON_SCHEMA);
+	// }
+    tjc.doUpdate(firmware);
+	return firmware;
 }
 
 void mqttCallback(char* topic, byte* payload, unsigned int length) {
@@ -171,8 +167,20 @@ void connectToMQTT() {
     }
 }
 
-int runNextionCommand(const char* data) {
-  nextion.run(data);
+void tjcPageChangeCallback(uint8_t page) {
+    Log.info("Page changed to %d", page);
+}
+
+void tjcNumericDataCallback(int data) {
+    Log.info("Data:%d", data);
+}
+
+void tjcStringDataCallback(const char* data) {
+    Log.info("Data:$s", data);
+}
+
+int runTJCCommand(const char* data) {
+//   tjc.run(data);
   return 0;
 }
 
@@ -186,8 +194,7 @@ STARTUP(startupMacro());
 
 void setup(void) {
   wd = new ApplicationWatchdog(60000, System.reset, 1536);
-  nextion.setup();
-  nextion.powerOff();
+  tjc.setup();
 
   waitFor(Particle.connected, 30000);
   
@@ -212,20 +219,23 @@ void setup(void) {
     resetCount = 0;
   }
 
-  Particle.function("run", runNextionCommand);
-  Particle.function("startFirmwareUpdate", startUpdate);
-  Particle.function("setPower", setPower);
+  Particle.function("run", runTJCCommand);
+  Particle.function("runUpdate", runUpdate);
   Particle.publishVitals(900);
 
   Log.info("Boot complete. Reset count = %d", resetCount);
-  nextion.powerOn();
+  tjc.attachPageChangeCallback(tjcPageChangeCallback);
+  tjc.attachNumericDataCallback(tjcNumericDataCallback);
+  tjc.attachStringDataCallback(tjcStringDataCallback);
+  tjc.powerOn();
 }
 
 void loop() {
-  nextion.loop();
+  tjc.loop();
 
-  if (nextion.getPage() == 0 && nextion.getIsReady()) {
-    nextion.setPage(1);
+  if (tjc.getPage() == 0 && tjc.getIsReady()) {
+    tjc.setPage(1);
+    // nodeStats.fullRefresh();
   }
 
   for (int i = 0; i < 3; i++) {
@@ -235,16 +245,16 @@ void loop() {
       dockerContainerCount[i] = 0;
     }
   }
-  if (nextion.getIsReady()) {
+//   if (tjc.getIsReady()) {
     if (mqttClient.isConnected()) {
         mqttClient.loop();
     } else if ((mqttConnectionAttempts < 5 && millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout1)) ||
                   millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout2)) {
         connectToMQTT();
     }
-  } else if (mqttClient.isConnected()) {
-    mqttClient.disconnect();
-  }
+//   } else if (mqttClient.isConnected()) {
+    // mqttClient.disconnect();
+//   }
 
   wd->checkin();  // resets the AWDT count
 }

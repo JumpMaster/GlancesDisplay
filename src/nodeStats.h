@@ -32,7 +32,8 @@ public:
   NodeStats(TJC* tjc);
   void setStat(uint8_t node, Stats stat, const char* rawValue);
   void setStat(uint8_t node, Stats stat, uint8_t value);
-  void fullRefresh();
+  void setCurrentNode(uint8_t node) { currentNode = node; }
+  void fullPageRefresh();
 protected:
   TJC* tjc;
 
@@ -55,7 +56,7 @@ protected:
   uint64_t memUsed[3];
   uint64_t memTotal[3];
   uint8_t memPercent[3];
-  uint8_t swapPercent[3] = {255, 255, 255};
+  uint8_t swapPercent[3];
   double load1[3];
   double load5[3];
   double load15[3];
@@ -68,6 +69,8 @@ protected:
   uint64_t fs2Used[3];
   uint64_t fs2Total[3];
   uint8_t dockerContainers[3];
+
+  uint8_t currentNode = 0;
 };
 
 #endif

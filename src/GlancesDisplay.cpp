@@ -169,14 +169,20 @@ void connectToMQTT() {
 
 void tjcPageChangeCallback(uint8_t page) {
     Log.info("Page changed to %d", page);
+    nodeStats.fullPageRefresh();
 }
 
 void tjcNumericDataCallback(int data) {
-    Log.info("Data:%d", data);
+    Log.info("Numeric Data:%d", data);
 }
 
 void tjcStringDataCallback(const char* data) {
-    Log.info("Data:$s", data);
+    Log.info("String Data:%s", data);
+    if (strncmp(data, "node", 4) == 0) {
+        uint8_t node = data[5] - '0';
+        if (node >= 0 && node <= 2)
+            nodeStats.setCurrentNode(node);
+    }
 }
 
 int runTJCCommand(const char* data) {
@@ -235,7 +241,6 @@ void loop() {
 
   if (tjc.getPage() == 0 && tjc.getIsReady()) {
     tjc.setPage(1);
-    // nodeStats.fullRefresh();
   }
 
   for (int i = 0; i < 3; i++) {

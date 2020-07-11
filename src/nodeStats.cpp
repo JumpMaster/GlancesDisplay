@@ -169,94 +169,132 @@ void NodeStats::setStat(uint8_t node, Stats stat, const char* rawValue) {
 }
 
 void NodeStats::updateDisplay(uint8_t node, Stats stat) {
-  if (!tjc->getIsReady())
-    return;
+    if (!tjc->getIsReady())
+        return;
 
-  switch (stat) {
-    case Uptime:
-      setUptimeText(node, uptime[node]);
-      break;
-    case CPUPercent:
-      setTextPercent(node, "cpu", cpuPercent[node]);
-      setProgressBar(node, "cpu", cpuPercent[node]);
-      break;
-    case MemoryFree:
-      setText(node, "memfree", bytesToHumanSize(memFree[node]));
-      break;
-    case MemoryUsed:
-      setText(node, "memused", bytesToHumanSize(memUsed[node]));
-      break;
-    case MemoryTotal:
-      setText(node, "memtotal", bytesToHumanSize(memTotal[node]));
-      break;
-    case MemoryPercent:
-      setTextPercent(node, "mem", memPercent[node]);
-      setProgressBar(node, "mem", memPercent[node]);
-      break;
-    case SwapPercent:
-      setTextPercent(node, "swap", swapPercent[node]);
-      setProgressBar(node, "swap", swapPercent[node]);
-      break;
-    case Load1:
-      setTextDouble(node, "load1", load1[node]);
-      break;
-    case Load5:
-      setTextDouble(node, "load5", load5[node]);
-      break;
-    case Load15:
-      setTextDouble(node, "load15", load15[node]);
-      break;
-    case TemperatureCore0:
-      setTextTemperature(node, "core0", temperatureCore0[node]);
-      break;
-    case TemperatureCore1:
-      setTextTemperature(node, "core1", temperatureCore1[node]);
-      break;
-    case NicTX:
-      setText(node, "nictx", bytesToHumanSize(nicTX[node]));
-      break;
-    case NicRX:
-      setText(node, "nicrx", bytesToHumanSize(nicRX[node]));
-      break;
-    case FS1Used:
-      setText(node, "fs1used", bytesToHumanSize(fs1Used[node]));
-      break;
-    case FS1Total:
-      setText(node, "fs1total", bytesToHumanSize(fs1Total[node]));
-      break;
-    case FS2Used:
-      setText(node, "fs2used", bytesToHumanSize(fs2Used[node]));
-      break;
-    case FS2Total:
-      setText(node, "fs2total", bytesToHumanSize(fs2Total[node]));
-      break;
-    case DockerContainers:
-      setText(node, "container", dockerContainers[node]);
-      break;
+  if (tjc->getPage() == 1) {
+    switch (stat) {
+        case Uptime:
+            setUptimeText(node, uptime[node]);
+            break;
+        case CPUPercent:
+            setTextPercent(node, "cpu", cpuPercent[node]);
+            setProgressBar(node, "cpu", cpuPercent[node]);
+            break;
+        case MemoryFree:
+            setText(node, "memfree", bytesToHumanSize(memFree[node]));
+            break;
+        case MemoryUsed:
+            setText(node, "memused", bytesToHumanSize(memUsed[node]));
+            break;
+        case MemoryTotal:
+            setText(node, "memtotal", bytesToHumanSize(memTotal[node]));
+            break;
+        case MemoryPercent:
+            setTextPercent(node, "mem", memPercent[node]);
+            setProgressBar(node, "mem", memPercent[node]);
+            break;
+        case SwapPercent:
+            setTextPercent(node, "swap", swapPercent[node]);
+            setProgressBar(node, "swap", swapPercent[node]);
+            break;
+        case Load1:
+            setTextDouble(node, "load1", load1[node]);
+            break;
+        case Load5:
+            setTextDouble(node, "load5", load5[node]);
+            break;
+        case Load15:
+            setTextDouble(node, "load15", load15[node]);
+            break;
+        case TemperatureCore0:
+            setTextTemperature(node, "core0", temperatureCore0[node]);
+            break;
+        case TemperatureCore1:
+            setTextTemperature(node, "core1", temperatureCore1[node]);
+            break;
+        case NicTX:
+            setText(node, "nictx", bytesToHumanSize(nicTX[node]));
+            break;
+        case NicRX:
+            setText(node, "nicrx", bytesToHumanSize(nicRX[node]));
+            break;
+        case FS1Used:
+            setText(node, "fs1used", bytesToHumanSize(fs1Used[node]));
+            break;
+        case FS1Total:
+            setText(node, "fs1total", bytesToHumanSize(fs1Total[node]));
+            break;
+        case FS2Used:
+            setText(node, "fs2used", bytesToHumanSize(fs2Used[node]));
+            break;
+        case FS2Total:
+            setText(node, "fs2total", bytesToHumanSize(fs2Total[node]));
+            break;
+        case DockerContainers:
+            setText(node, "container", dockerContainers[node]);
+            break;
+    }
+  } else if (tjc->getPage() == 2 && currentNode == node) {
+    switch (stat) {
+        case CPUPercent:
+        {
+            char buffer[5];
+            sprintf(buffer, "%d%%", cpuPercent[currentNode]);
+            tjc->setText("txtcpu", buffer);
+            uint8_t pic = cpuPercent[currentNode] / 5;
+            tjc->setPic("pcpu", pic);
+        }
+            break;
+        case MemoryPercent:
+        {
+            char buffer[5];
+            sprintf(buffer, "%d%%", memPercent[currentNode]);
+            tjc->setText("txtmem", buffer);
+            uint8_t pic = 21 + (memPercent[currentNode] / 5);
+            tjc->setPic("pmem", pic);
+        }
+            break;
+        case SwapPercent:
+        {
+            char buffer[5];
+            sprintf(buffer, "%d%%", swapPercent[currentNode]);
+            tjc->setText("txtswap", buffer);
+            uint8_t pic = 42 + (swapPercent[currentNode] / 5);
+            tjc->setPic("pswap", pic);
+        }
+            break;
+    }
   }
 }
 
-void NodeStats::fullRefresh() {
-    for (uint8_t node = 0; node < 3; node++) {
-        updateDisplay(node, Uptime);
-        updateDisplay(node, CPUPercent);
-        updateDisplay(node, MemoryFree);
-        updateDisplay(node, MemoryUsed);
-        updateDisplay(node, MemoryTotal);
-        updateDisplay(node, MemoryPercent);
-        updateDisplay(node, SwapPercent);
-        updateDisplay(node, Load1);
-        updateDisplay(node, Load5);
-        updateDisplay(node, Load15);
-        updateDisplay(node, TemperatureCore0);
-        updateDisplay(node, TemperatureCore1);
-        updateDisplay(node, NicTX);
-        updateDisplay(node, NicRX);
-        updateDisplay(node, FS1Used);
-        updateDisplay(node, FS1Total);
-        updateDisplay(node, FS2Used);
-        updateDisplay(node, FS2Total);
-        updateDisplay(node, DockerContainers);
+void NodeStats::fullPageRefresh() {
+    if (tjc->getPage() == 1) {
+        for (uint8_t node = 0; node < 3; node++) {
+            updateDisplay(node, Uptime);
+            updateDisplay(node, CPUPercent);
+            updateDisplay(node, MemoryFree);
+            updateDisplay(node, MemoryUsed);
+            updateDisplay(node, MemoryTotal);
+            updateDisplay(node, MemoryPercent);
+            updateDisplay(node, SwapPercent);
+            updateDisplay(node, Load1);
+            updateDisplay(node, Load5);
+            updateDisplay(node, Load15);
+            updateDisplay(node, TemperatureCore0);
+            updateDisplay(node, TemperatureCore1);
+            updateDisplay(node, NicTX);
+            updateDisplay(node, NicRX);
+            updateDisplay(node, FS1Used);
+            updateDisplay(node, FS1Total);
+            updateDisplay(node, FS2Used);
+            updateDisplay(node, FS2Total);
+            updateDisplay(node, DockerContainers);
+        }
+    } else if (tjc->getPage() == 2) {
+        updateDisplay(currentNode, CPUPercent);
+        updateDisplay(currentNode, MemoryPercent);
+        updateDisplay(currentNode, SwapPercent);
     }
 }
 

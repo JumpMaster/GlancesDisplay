@@ -24,7 +24,7 @@ public:
 
     uint8_t getPage() { return currentPage; }
     void setPage(const uint8_t page);
-    void setPic(const int page, const char* name, const int pic);
+    void setPic(const char* name, const int pic);
     void setText(const char* name, const char* value);
     void refreshComponent(const char* name);
     void setBrightness(const uint8_t brightness);

@@ -288,6 +288,12 @@ void TJC::setPage(const uint8_t page) {
   execute(buffer);
 }
 
+void TJC::setPic(const char* name, const int pic) {
+  char buffer[100];
+  sprintf(buffer, "%s.pic=%d", name, pic);
+  execute(buffer);
+}
+
 void TJC::attachPageChangeCallback(PageChangeEventCb cb) {
     pageChangeCbPtr = cb;
 }

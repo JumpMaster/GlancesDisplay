@@ -22,7 +22,7 @@ void TJC::resetVariables() {
 
 void TJC::getVersion() {
     deviceVersionRequestedAt = millis();
-    execute("get global.version.txt");
+    execute("get version");
 }
 
 
@@ -206,35 +206,26 @@ void TJC::checkReturnCode(const char* data, int length) {
             char buffer[100];
             memcpy(buffer, &data[1], strlen(data)-1);
             // Log.info("\"%s\"", buffer);
-            
-            if (deviceVersionRequestedAt > 0) {
-                deviceVersionRequestedAt = 0;
-
-                const size_t capacity = 300;//JSON_OBJECT_SIZE(2) + 30;
-                DynamicJsonDocument doc(capacity);
-
-                // Parse JSON object
-                DeserializationError error = deserializeJson(doc, buffer);
-
-                if (!error) {
-                    if (strlen(doc["version"]) < 12) {
-                        Log.info("Device Version=\"%s\"", doc["version"].as<const char*>());
-                        tjcDownload.setVersionNumber(doc["version"]);
-                        tjcVerified = true;
-                        Log.info("Verified");
-                    }
-                } else {
-                    Log.info("It's null");
-                }
-            } else if (stringDataCbPtr != NULL) {
+            if (stringDataCbPtr != NULL) {
                 stringDataCbPtr(buffer);
             }
 		    break;
         case 0x71: // Numeric data
-            if (numericDataCbPtr != NULL) {
+        {
+            if (deviceVersionRequestedAt > 0 && data[4] == 0x1b) {
+                deviceVersionRequestedAt = 0;
+                char version[12];
+                sprintf(version, "%d.%d.%d", data[1], data[2], data[3]);
+                // Log.info("Numeric version:%s", version);
+                Log.info("Device Version=\"%s\"", version);
+                tjcDownload.setVersionNumber(version);
+                tjcVerified = true;
+                Log.info("Verified");
+            } else if (numericDataCbPtr != NULL) {
                 uint32_t n = data[1] + data[2]*256 + data[3]*65535 + data[4]*16777216;
                 numericDataCbPtr(n);
             }
+        }
             break;
         case 0x88: // Ready
             tjcReady = true;

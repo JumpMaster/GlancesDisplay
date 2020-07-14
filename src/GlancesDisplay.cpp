@@ -250,16 +250,16 @@ void loop() {
       dockerContainerCount[i] = 0;
     }
   }
-//   if (tjc.getIsReady()) {
+  if (!tjc.getIsUpdating()) {
     if (mqttClient.isConnected()) {
         mqttClient.loop();
     } else if ((mqttConnectionAttempts < 5 && millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout1)) ||
                   millis() > (lastMqttConnectAttempt + mqttConnectAtemptTimeout2)) {
         connectToMQTT();
     }
-//   } else if (mqttClient.isConnected()) {
-    // mqttClient.disconnect();
-//   }
+  } else if (mqttClient.isConnected()) {
+    mqttClient.disconnect();
+  }
 
   wd->checkin();  // resets the AWDT count
 }

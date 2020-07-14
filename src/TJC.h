@@ -20,6 +20,7 @@ public:
     void sendConnect() { execute("connect"); }
     void getVersion();
     bool getIsReady() { return tjcReady && tjcConnected && tjcVerified && tjcFirmwareChecked && upgradeState == Idle; }
+    bool getIsUpdating() { return upgradeState >= UploadInProgress; }
     void doUpdate(bool firmware);
 
     uint8_t getPage() { return currentPage; }

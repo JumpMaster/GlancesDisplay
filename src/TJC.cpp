@@ -65,7 +65,7 @@ void TJC::loop() {
     //
     // Check for new firmware
     //
-    if (tjcVerified && upgradeState == Idle && millis() > nextFirmwareUpdateCheck) {
+    if (tjcVerified && upgradeState == Idle && nextFirmwareUpdateCheck == 0) { //millis() > nextFirmwareUpdateCheck) {
         tjcDownload.start(tjcDownload.JSON_SCHEMA);
         upgradeState = VersionCheckInProgress;
         nextFirmwareUpdateCheck = millis() + firmwareUpdateCheckInterval;
@@ -274,7 +274,7 @@ void TJC::setForegroundColor(const char* name, uint16_t color) {
 
 void TJC::setPage(const uint8_t page) {
   currentPage = page;
-  char buffer[8];
+  char buffer[9];
   sprintf(buffer, "page %d", currentPage);
   execute(buffer);
 }

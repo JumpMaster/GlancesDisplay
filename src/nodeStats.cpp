@@ -287,9 +287,11 @@ void NodeStats::fullPageRefresh() {
             updateDisplay(node, NicRX);
             updateDisplay(node, FS1Used);
             updateDisplay(node, FS1Total);
-            updateDisplay(node, FS2Used);
-            updateDisplay(node, FS2Total);
             updateDisplay(node, DockerContainers);
+            if (node != 2) {
+                updateDisplay(node, FS2Used);
+                updateDisplay(node, FS2Total);
+            }
         }
     } else if (tjc->getPage() == 2) {
         updateDisplay(currentNode, CPUPercent);
@@ -373,7 +375,6 @@ void NodeStats::setProgressBar(uint8_t node, const char* obj, uint8_t value) {
 
     tjc->setProgressBar(objName, value);
 }
-
 
 const char* NodeStats::bytesToHumanSize(uint64_t bytes) {
 

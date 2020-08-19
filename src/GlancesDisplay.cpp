@@ -8,6 +8,23 @@
 //  Stubs
 void mqttCallback(char* topic, byte* payload, unsigned int length);
 
+#define WATCHDOG_TIMEOUT_MS 30*1000
+
+#define WDT_RREN_REG 0x40010508
+#define WDT_CRV_REG 0x40010504
+#define WDT_REG 0x40010000
+void WatchDoginitialize() {
+    *(uint32_t *) WDT_RREN_REG = 0x00000001;
+    *(uint32_t *) WDT_CRV_REG = (uint32_t) (WATCHDOG_TIMEOUT_MS * 32.768);
+    *(uint32_t *) WDT_REG = 0x00000001;
+}
+
+#define WDT_RR0_REG 0x40010600
+#define WDT_RELOAD 0x6E524635
+void WatchDogpet() {
+    *(uint32_t *) WDT_RR0_REG = WDT_RELOAD;
+}
+
 PapertrailLogHandler papertrailHandler(papertrailAddress, papertrailPort,
   "ArgonGlances", System.deviceID(),
   LOG_LEVEL_NONE, {
@@ -15,8 +32,6 @@ PapertrailLogHandler papertrailHandler(papertrailAddress, papertrailPort,
   // TOO MUCH!!! { “system”, LOG_LEVEL_ALL },
   // TOO MUCH!!! { “comm”, LOG_LEVEL_ALL }
 });
-
-ApplicationWatchdog *wd;
 
 MQTT mqttClient(mqttServer, 1883, mqttCallback);
 uint32_t lastMqttConnectAttempt;
@@ -33,9 +48,10 @@ uint8_t dockerContainers[3];
 uint32_t containerUpdateTimeout[3];
 const uint16_t containerCountTimeout = 500;
 
-// Nextion nextion(Serial1);
 TJC tjc(Serial1, 921600);
 NodeStats nodeStats(&tjc);
+
+const char *fsPaths[6] = {"_", "_gluster", "_", "_gluster", "_share_CACHEDEV1_DATA", ""};
 
 int runUpdate(const char* data) {
     bool firmware = false;
@@ -127,14 +143,13 @@ void mqttCallback(char* topic, byte* payload, unsigned int length) {
         }
       }
     } else if (strcmp(topics[2], "fs") == 0) {
-      if (strcmp(topics[3], "_share_CACHEDEV1_DATA") == 0 ||
-          strcmp(topics[3], "_") == 0) {
+      if (strcmp(topics[3], fsPaths[server*2]) == 0) {
         if (strncmp(topics[4], "size", 4) == 0) {
           nodeStats.setStat(server, NodeStats::FS1Total, p);
         } else if (strncmp(topics[4], "used", 4) == 0) {
           nodeStats.setStat(server, NodeStats::FS1Used, p);
         }
-      } else if (strcmp(topics[3], "_gluster") == 0) {
+      } else if (strcmp(topics[3], fsPaths[(server*2)+1]) == 0) {
         if (strncmp(topics[4], "size", 4) == 0) {
           nodeStats.setStat(server, NodeStats::FS2Total, p);
         } else if (strncmp(topics[4], "used", 4) == 0) {
@@ -199,7 +214,6 @@ void startupMacro() {
 STARTUP(startupMacro());
 
 void setup(void) {
-  wd = new ApplicationWatchdog(60000, System.reset, 1536);
   tjc.setup();
 
   waitFor(Particle.connected, 30000);
@@ -221,6 +235,8 @@ void setup(void) {
     if (resetCount > 3) {
       System.enterSafeMode();
     }
+  } else if (System.resetReason() == RESET_REASON_WATCHDOG) {
+      Log.info("RESET BY WATCHDOG");
   } else {
     resetCount = 0;
   }
@@ -228,6 +244,8 @@ void setup(void) {
   Particle.function("run", runTJCCommand);
   Particle.function("runUpdate", runUpdate);
   Particle.publishVitals(900);
+
+  WatchDoginitialize();
 
   Log.info("Boot complete. Reset count = %d", resetCount);
   tjc.attachPageChangeCallback(tjcPageChangeCallback);
@@ -261,5 +279,5 @@ void loop() {
     mqttClient.disconnect();
   }
 
-  wd->checkin();  // resets the AWDT count
+  WatchDogpet();
 }
